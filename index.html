@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<title>АНДРЕЙ — Реальный 3D без очков</title>
+<title>АНДРЕЙ — Реальный 3D без очков (устойчивый старт)</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <meta name="color-scheme" content="dark"/>
 <style>
@@ -12,7 +12,7 @@
   #app{ position:fixed; inset:0; overflow:hidden }
   #gl{ position:absolute; inset:0; width:100%; height:100%; display:block }
 
-  /* top UI */
+  /* UI */
   #ui{ position:absolute; left:12px; right:12px; top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;
        background:#0d1421cc; border:1px solid var(--line); border-radius:14px; padding:10px; backdrop-filter:blur(8px); z-index:5 }
   .btn, select, input[type=range], .ghost{
@@ -21,8 +21,8 @@
   }
   .ghost{ background:transparent }
   #status{ margin-left:auto; font-size:12px; opacity:.85 }
-  #video,#dbg{ position:absolute; right:12px; bottom:12px; width:240px; height:auto; border-radius:12px; border:1px solid var(--line); display:none; z-index:4; background:#000 }
-  #dbg{ right:264px }
+  #video,#dbg{ position:absolute; right:12px; bottom:12px; width:220px; height:auto; border-radius:12px; border:1px solid var(--line); display:none; z-index:4; background:#000 }
+  #dbg{ right:244px }
 
   /* splash */
   #splash{ position:absolute; inset:0; display:grid; place-items:center; z-index:10; background:
@@ -52,13 +52,12 @@
 
   <!-- UI -->
   <div id="ui" hidden>
-    <button id="toggleCam" class="btn">Камера: вкл</button>
+    <button id="tryCam" class="btn">Попробовать трекинг (beta)</button>
     <label>Режим:
       <select id="mode"><option value="hcp">Без очков (HCP)</option><option value="anaglyph">Анаглиф</option></select>
     </label>
-    <label>Глубина: <input id="depth" type="range" min="0" max="200" value="90"/></label>
+    <label>Глубина: <input id="depth" type="range" min="0" max="200" value="100"/></label>
     <label><input type="checkbox" id="showDbg"> Отладка</label>
-    <button id="permTest" class="ghost">Проверить камеру</button>
     <div id="status">Готово</div>
   </div>
 
@@ -74,7 +73,7 @@
   </div>
 
   <video id="video" playsinline muted></video>
-  <canvas id="dbg" width="240" height="160"></canvas>
+  <canvas id="dbg" width="220" height="140"></canvas>
 
   <!-- Diagnostics -->
   <div id="diag"></div>
@@ -93,11 +92,10 @@ const startBtn = document.getElementById('startBtn');
 const splash = document.getElementById('splash');
 const miniTip = document.getElementById('miniTip');
 const statusEl = document.getElementById('status');
-const toggleCamBtn = document.getElementById('toggleCam');
+const tryCamBtn = document.getElementById('tryCam');
 const modeSel = document.getElementById('mode');
 const depthRange = document.getElementById('depth');
 const showDbg = document.getElementById('showDbg');
-const permTest = document.getElementById('permTest');
 const video = document.getElementById('video');
 const dbg = document.getElementById('dbg');
 const dbgCtx = dbg.getContext('2d');
@@ -107,10 +105,11 @@ const diag = document.getElementById('diag');
 let renderer, scene, camera, effect, stream=null, faceLandmarker=null;
 const S = {
   w:0,h:0,dpr:Math.min(devicePixelRatio||1,2),
-  hcp:true, depth:.9,
+  hcp:true, depth:1.0,
   face:{ok:false,cx:.5,cy:.5,eye:.15,ts:0},
   mouse:{x:.5,y:.5,active:false},
-  targetCam:new THREE.Vector3(0,1.4,5.6),
+  gyro:{enabled:false,x:.5,y:.5},
+  targetCam:new THREE.Vector3(0,1.4,5.8),
   lookAt:new THREE.Vector3(0,1.2,0)
 };
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -121,99 +120,88 @@ function showDiag(msg, offerOpen=false){
   diag.style.display='block';
   diag.innerHTML = msg + (offerOpen? `<div class="row"><button id="openTop">Открыть в новой вкладке</button></div>` : '');
   if(offerOpen){
-    const btn=document.getElementById('openTop');
-    btn.onclick=()=>{ try{ window.open(location.href,'_blank'); }catch(e){} };
+    document.getElementById('openTop').onclick=()=>{ try{ window.open(location.href,'_blank'); }catch(e){} };
   }
 }
-async function runPreflight(){
-  let issues=[];
+function preflight(){
   const insideIframe = window.top !== window.self;
   const secure = window.isSecureContext || location.hostname==='localhost';
-  if(insideIframe) issues.push('Страница запущена ВНУТРИ iframe → камера часто блокируется.');
+  let issues=[];
+  if(insideIframe) issues.push('Страница запущена ВНУТРИ iframe → камера может блокироваться.');
   if(!secure) issues.push(`Нужен HTTPS или localhost. Сейчас: ${location.protocol}//${location.host}`);
-  try{
-    if(navigator.permissions && navigator.permissions.query){
-      const st = await navigator.permissions.query({name:'camera'});
-      if(st.state==='denied') issues.push('Камера ЗАБЛОКИРОВАНА для домена — разреши в настройках сайта.');
-    }
-  }catch{}
-  if(issues.length){
-    showDiag('Диагностика:\n• '+issues.join('\n• '), insideIframe);
-  }
-  miniTip.textContent = secure? '' : 'Открой через https или http://localhost — иначе камера не спросит.';
+  if(issues.length) showDiag('Диагностика:\n• '+issues.join('\n• '), insideIframe);
+  miniTip.textContent = secure? '' : 'Открой через https или http://localhost — иначе камера может не спросить.';
 }
+preflight();
 
-/* ===== Boot ===== */
-window.addEventListener('error', e=> showDiag('JS ошибка: '+(e.message||'')+'\nСмотри консоль.', false));
-window.addEventListener('unhandledrejection', e=> showDiag('Обещание отклонено: '+(e.reason?.message||e.reason||''), false));
-
-await runPreflight();
-
-startBtn.addEventListener('click', async ()=>{
+/* ===== Splash start (без камеры, гарантированный) ===== */
+startBtn.addEventListener('click', ()=>{
   splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 600);
   ui.hidden=false;
-
-  // 1) Старт рендера сразу
-  await start3D();
-
-  // 2) Мгновенно просим КАМЕРУ (одна кнопка — один жест пользователя)
-  await startCamera(); // если не даст — просто будет fallback на мышь
-
-  // 3) Подгрузим трекинг лица лениво (не мешает запросу камеры)
-  try{
-    const { FaceLandmarker, FilesetResolver } = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5");
-    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5/wasm");
-    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-      baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task" },
-      runningMode:"VIDEO", numFaces:1
-    });
-    status('Трекинг лица: ок');
-  }catch(err){
-    console.warn(err);
-    status('Трекинг лица недоступен (ok, параллакс мышью работает)');
-  }
+  start3D(); // стартуем СРАЗУ — 3D видно мгновенно
 });
 
-toggleCamBtn.addEventListener('click', ()=>{ if(stream){ stopCamera(); status('Камера остановлена'); toggleCamBtn.textContent='Камера: выкл'; } else startCamera(); });
+/* ===== Optional: gyro fallback ===== */
+if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+  // iOS требует явного запроса после пользовательского жеста; дадим подсказку
+  miniTip.textContent = 'На iOS дай доступ к гироскопу после НАЧАТЬ (вопрос всплывёт).';
+}
+window.addEventListener('deviceorientation', e=>{
+  const nx = clamp((e.gamma||0)/60 + .5, 0, 1);
+  const ny = clamp((e.beta||0)/90 + .5, 0, 1);
+  S.gyro.enabled = true; S.gyro.x = nx; S.gyro.y = ny;
+});
+window.addEventListener('pointermove', e=>{
+  const r = app.getBoundingClientRect();
+  S.mouse.x = clamp((e.clientX - r.left)/r.width, 0, 1);
+  S.mouse.y = clamp((e.clientY - r.top)/r.height, 0, 1);
+  S.mouse.active = true;
+});
+
+/* ===== Try camera (beta) — по желанию ===== */
+tryCamBtn.addEventListener('click', async ()=>{
+  tryCamBtn.disabled = true; tryCamBtn.textContent = 'Загружаю трекинг…';
+  const ok = await startCamera();
+  if(!ok){ tryCamBtn.disabled=false; tryCamBtn.textContent='Попробовать трекинг (beta)'; return; }
+  await initFaceTracker(); // Mediapipe грузим только по кнопке
+  status('Трекинг активен');
+  tryCamBtn.textContent = 'Камера: вкл';
+});
+
+/* ===== UI ===== */
 modeSel.addEventListener('change', ()=>{ S.hcp=(modeSel.value==='hcp'); status('Режим: '+(S.hcp?'HCP':'Анаглиф')); });
 depthRange.addEventListener('input', ()=>{ S.depth=depthRange.value/100; effect && effect.setEyeSeparation(clamp(0.06*S.depth,0,0.12)); });
 showDbg.addEventListener('change', ()=>{ const v=showDbg.checked; video.style.display=v?'block':'none'; dbg.style.display=v?'block':'none'; });
-permTest.addEventListener('click', async ()=>{
-  try{ const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}}); s.getTracks().forEach(t=>t.stop()); alert('Камера РАЗРЕШЕНА ✅'); }
-  catch(err){ alert('Камера НЕ получена ❌: '+err.name+'\n'+(err.message||'')); }
-});
-
-window.addEventListener('pointermove', e=>{
-  const r = app.getBoundingClientRect(); S.mouse.x=clamp((e.clientX-r.left)/r.width,0,1); S.mouse.y=clamp((e.clientY-r.top)/r.height,0,1); S.mouse.active=true;
-});
 
 /* ===== 3D ===== */
-async function start3D(){
+function start3D(){
   renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
   renderer.setPixelRatio(S.dpr);
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x070b11);
-  scene.fog = new THREE.Fog(0x070b11, 18, 40);
+  scene.fog = new THREE.Fog(0x070b11, 18, 42);
 
   camera = new THREE.PerspectiveCamera(55,1,0.1,200);
   camera.position.copy(S.targetCam); camera.lookAt(S.lookAt);
 
   effect = new AnaglyphEffect(renderer); effect.setEyeSeparation(0.06);
 
+  // lights
   const hemi = new THREE.HemisphereLight(0xbdd7ff,0x0a0f14,.9); scene.add(hemi);
   const key = new THREE.DirectionalLight(0xffffff,1.1); key.position.set(5,7,4); scene.add(key);
   const rim = new THREE.DirectionalLight(0x88ccff,.6); rim.position.set(-6,4,-3); scene.add(rim);
 
+  // floor + grid
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(200,200),
     new THREE.MeshStandardMaterial({color:0x0e1420, metalness:.1, roughness:.8}));
   plane.rotation.x=-Math.PI/2; scene.add(plane);
   const grid = new THREE.GridHelper(200,80,0x1b2838,0x152031); grid.position.y=.002; scene.add(grid);
 
+  // content
   const group = new THREE.Group(); scene.add(group);
   const metal = new THREE.MeshStandardMaterial({color:0x87baff, metalness:.9, roughness:.22});
   const glass = new THREE.MeshPhysicalMaterial({color:0xffffff, metalness:0, roughness:.08, transmission:.96, thickness:.9, transparent:true});
-
   const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1,.36,256,32), metal); knot.position.set(0,1.5,0); group.add(knot);
   for(let i=0;i<8;i++){ const s=new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(.18,.34),48,32),glass);
     s.position.set(THREE.MathUtils.randFloatSpread(6),THREE.MathUtils.randFloat(.6,2.2),THREE.MathUtils.randFloatSpread(6)); group.add(s); }
@@ -222,40 +210,28 @@ async function start3D(){
     b.position.set(THREE.MathUtils.randFloatSpread(10),THREE.MathUtils.randFloat(.3,3.5),THREE.MathUtils.randFloatSpread(10));
     b.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,0); group.add(b); }
 
+  // loop
   window.addEventListener('resize', onResize); onResize();
   const clock = new THREE.Clock();
   renderer.setAnimationLoop(()=>{
     const t = clock.getElapsedTime();
     knot.rotation.x=t*.35; knot.rotation.y=t*.22;
     group.children.forEach((o,idx)=>{ if(o===knot) return; o.position.y += Math.sin(t*.9+idx)*0.0009; o.rotation.y += 0.003*(idx%3?1:-1); });
-    updateHCP(); if(S.hcp) renderer.render(scene,camera); else effect.render(scene,camera);
+    updateParallax();
+    if(S.hcp) renderer.render(scene,camera); else effect.render(scene,camera);
   });
-  status('3D готово');
+  status('3D готово — двинь мышкой/телом');
 }
 function onResize(){ S.w=app.clientWidth; S.h=app.clientHeight; camera.aspect=S.w/S.h; camera.updateProjectionMatrix(); renderer.setSize(S.w,S.h,false); effect.setSize(S.w,S.h); }
 
 let _sx=0,_sy=0,_sz=0;
-function updateHCP(){
-  const now = performance.now();
-  // лицо (если landmarker подгрузился)
-  if(faceLandmarker && video.readyState>=2 && stream){
-    const res = faceLandmarker.detectForVideo(video, now);
-    if(res && res.faceLandmarks?.length){
-      const lm=res.faceLandmarks[0], L=lm[33], R=lm[263];
-      const cx=(L.x+R.x)/2, cy=(L.y+R.y)/2, d=Math.hypot(L.x-R.x,L.y-R.y);
-      S.face.ok=true; S.face.cx=1-cx; S.face.cy=cy; S.face.eye=d; S.face.ts=now;
-      if(showDbg.checked){
-        dbgCtx.drawImage(video,0,0,dbg.width,dbg.height);
-        dbgCtx.fillStyle="#00ff90";
-        dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-L.x), dbg.height*L.y, 3, 0, Math.PI*2); dbgCtx.fill();
-        dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-R.x), dbg.height*R.y, 3, 0, Math.PI*2); dbgCtx.fill();
-      }
-    }else{ S.face.ok=(now - S.face.ts) < 500; }
-  }
-  // источник: лицо или мышь
+function updateParallax(){
+  // источник: трекинг лица → гироскоп → мышь
   let nx=.5, ny=.5, dist=1;
-  if(S.face.ok){ nx=clamp(S.face.cx,0,1); ny=clamp(S.face.cy,0,1); const d=clamp(S.face.eye,0.08,0.35); dist=THREE.MathUtils.mapLinear(d,0.08,0.35,1.8,0.6); }
-  else if(S.mouse.active){ nx=S.mouse.x; ny=S.mouse.y; }
+  if(S.face.ok){ nx=clamp(S.face.cx,0,1); ny=clamp(S.face.cy,0,1);
+    const d=clamp(S.face.eye,0.08,0.35); dist=THREE.MathUtils.mapLinear(d,0.08,0.35,1.8,0.6);
+  } else if(S.gyro.enabled){ nx=S.gyro.x; ny=S.gyro.y;
+  } else if(S.mouse.active){ nx=S.mouse.x; ny=S.mouse.y; }
 
   const maxX=0.9*S.depth*dist, maxY=0.6*S.depth*dist, maxZ=0.9*S.depth*dist;
   const tx=THREE.MathUtils.mapLinear(nx,0,1,-maxX,maxX);
@@ -267,33 +243,75 @@ function updateHCP(){
   camera.lookAt(S.lookAt.x+_sx*0.2,S.lookAt.y+_sy*0.2,S.lookAt.z);
 }
 
-/* ===== Camera ===== */
+/* ===== Camera & Face tracker (опционально) ===== */
 async function startCamera(){
   try{
     if(!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia неподдерживается в этом окружении');
     stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} }, audio:false });
     video.srcObject = stream; await video.play().catch(()=>{});
     if(showDbg.checked) video.style.display='block';
-    toggleCamBtn.textContent='Камера: вкл'; status('Камера: ок');
+    status('Камера: ок');
+    return true;
   }catch(err){
-    toggleCamBtn.textContent='Камера: выкл';
-    status('Нет доступа к камере: '+(err.name||'Error'));
-    // подробный разбор
     const insideIframe = window.top !== window.self;
     const secure = window.isSecureContext || location.hostname==='localhost';
-    let msg = 'Ошибка камеры: '+(err.name||'')+'\n'+(err.message||'');
-    if(insideIframe) msg += '\n• Вы запущены внутри iframe → владелец контейнера мог запретить камеру.';
-    if(!secure) msg += `\n• Нужен HTTPS или localhost. Сейчас: ${location.protocol}//${location.host}`;
-    msg += '\n• Проверь замочек в адресной строке и разреши камеру для домена.';
-    showDiag(msg, insideIframe);
+    showDiag(
+      'Камеру получить не удалось: '+(err.name||'')+'\n'+(err.message||'')+
+      (insideIframe? '\n• Вы внутри iframe — контейнер может резать камеру. Открой в новой вкладке.' : '')+
+      (!secure? `\n• Нужен HTTPS или localhost. Сейчас: ${location.protocol}//${location.host}`:'')+
+      '\n• Разреши камеру для домена (значок замочка).',
+      insideIframe
+    );
+    status('Камера недоступна — работаем без неё');
+    return false;
   }
 }
-function stopCamera(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } video.srcObject=null; video.pause(); }
 
-function status(m){ statusEl.textContent=m; clearTimeout(status._t); status._t=setTimeout(()=>statusEl.textContent='Готово',4000); }
+async function initFaceTracker(){
+  try{
+    const { FaceLandmarker, FilesetResolver } = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5");
+    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5/wasm");
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task" },
+      runningMode:"VIDEO", numFaces:1
+    });
 
-// file:// предупреждение
+    // запускаем простой poll вместо сложного таймера
+    const tick = ()=>{
+      if(!faceLandmarker || !stream || video.readyState<2) return;
+      const now = performance.now();
+      const res = faceLandmarker.detectForVideo(video, now);
+      if(res && res.faceLandmarks?.length){
+        const lm = res.faceLandmarks[0], L = lm[33], R = lm[263];
+        const cx = (L.x+R.x)/2, cy=(L.y+R.y)/2, d=Math.hypot(L.x-R.x, L.y-R.y);
+        S.face.ok = true; S.face.cx = 1-cx; S.face.cy = cy; S.face.eye = d; S.face.ts = now;
+
+        if(showDbg.checked){
+          dbgCtx.drawImage(video,0,0,dbg.width,dbg.height);
+          dbgCtx.fillStyle="#00ff90";
+          dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-L.x), dbg.height*L.y, 3, 0, Math.PI*2); dbgCtx.fill();
+          dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-R.x), dbg.height*R.y, 3, 0, Math.PI*2); dbgCtx.fill();
+        }
+      } else {
+        S.face.ok = (performance.now() - S.face.ts) < 500;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }catch(e){
+    showDiag('Не удалось инициализировать трекинг лица (окей, без него тоже работает): '+(e.message||e));
+  }
+}
+
+/* ===== Status helper ===== */
+let _t; function status(m){ clearTimeout(_t); statusEl.textContent=m; _t=setTimeout(()=>statusEl.textContent='Готово',4000); }
+
+/* file:// предупреждение */
 if(location.protocol==='file:'){ miniTip.textContent='Открой через https или http://localhost — в file:// камера блокируется.'; }
+
+/* ловим неожиданные ошибки, чтобы не «ничего не происходило» */
+window.addEventListener('error', e=> showDiag('JS ошибка: '+(e.message||'')+'\nСмотри консоль.'));
+window.addEventListener('unhandledrejection', e=> showDiag('Promise отклонён: '+(e.reason?.message||e.reason||'')));
 </script>
 </body>
 </html>

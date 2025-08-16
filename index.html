@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>АНДРЕЙ — Реальный 3D без очков (Safari/GitHub FIX)</title>
+<title>АНДРЕЙ — Реальный 3D без очков (WOW + Safari Fix)</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="color-scheme" content="dark">
 <style>
@@ -11,16 +11,17 @@
   html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif }
   #app{ position:fixed; inset:0; overflow:hidden }
   #gl{ position:absolute; inset:0; width:100%; height:100%; display:block }
+
   #ui{ position:absolute; left:12px; right:12px; top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;
        background:#0d1421cc; border:1px solid var(--line); border-radius:14px; padding:10px; backdrop-filter:blur(8px); z-index:5 }
-  .btn, select, input[type=range], .ghost{
+  .btn, select, input[type=range], .ghost, label{
     appearance:none; border:1px solid var(--line); background:#ffffff12; color:var(--txt);
     padding:8px 12px; border-radius:12px; font-weight:600; cursor:pointer
   }
+  label{ display:flex; align-items:center; gap:8px; padding:6px 10px }
   .ghost{ background:transparent }
   #status{ margin-left:auto; font-size:12px; opacity:.85 }
-  #video,#dbg{ position:absolute; right:12px; bottom:12px; width:220px; height:auto; border-radius:12px; border:1px solid var(--line); display:none; z-index:4; background:#000 }
-  #dbg{ right:244px }
+
   #splash{ position:absolute; inset:0; display:grid; place-items:center; z-index:10; background:
            radial-gradient(900px 640px at 50% 30%, #ffffff12, #00000088 60%, #000), var(--bg) }
   .logo{ text-align:center }
@@ -32,25 +33,44 @@
   .start{ margin-top:18px; padding:12px 18px; font-size:16px; border-radius:14px; border:1px solid #6dbaff80; background:#6dbaff20; cursor:pointer }
   @keyframes shine{ 0%,100%{letter-spacing:.02em} 50%{letter-spacing:.06em} }
   .fade-out{ animation:fadeout .6s ease forwards } @keyframes fadeout{ to{opacity:0;visibility:hidden} }
+
   #diag{ position:fixed; left:12px; right:12px; top:12px; z-index:9999; padding:10px 12px; border-radius:12px;
          background:#2a0b0b; color:#ffd9d9; border:1px solid #ff6b6b; font:600 13px/1.3 system-ui; white-space:pre-wrap; display:none }
-  @media (max-width:720px){ .name{font-size:30px} #video,#dbg{display:none!important} }
+
+  #video,#dbg{ position:absolute; right:12px; bottom:12px; width:220px; height:auto; border-radius:12px; border:1px solid var(--line); display:none; z-index:4; background:#000 }
+  #dbg{ right:244px }
+
+  /* рамка "экрана" для иллюзии вылета */
+  #frame {
+    position:absolute; inset:24px; border:6px solid #1a2636; border-radius:16px;
+    box-shadow: inset 0 0 0 1px #ffffff20, 0 20px 50px #00000090; pointer-events:none; z-index:1;
+  }
+
+  @media (max-width:720px){ .name{font-size:30px} #video,#dbg{display:none!important} #frame{inset:12px;border-width:4px} }
 </style>
 </head>
 <body>
 <div id="app">
+  <div id="frame"></div>
   <canvas id="gl"></canvas>
 
   <div id="ui" hidden>
+    <button id="wow" class="btn">WOW: выкл</button>
     <button id="toggleTrack" class="btn">Трекинг: вкл</button>
+
     <label>Режим:
       <select id="mode">
         <option value="hcp">Без очков (HCP)</option>
         <option value="anaglyph" id="optAnaglyph">Анаглиф</option>
       </select>
     </label>
-    <label>Глубина: <input id="depth" type="range" min="0" max="200" value="110"/></label>
+
+    <label>Глубина <input id="depth" type="range" min="20" max="250" value="120"/></label>
+    <label>Вылет за экран <input id="pop" type="range" min="-50" max="150" value="40"/></label>
+    <label><input type="checkbox" id="mirrorX" checked> Зеркало X</label>
     <label><input type="checkbox" id="showDbg"> Отладка</label>
+    <button id="calib" class="ghost">Калибровка</button>
+
     <div id="status">Готово</div>
   </div>
 
@@ -58,7 +78,7 @@
     <div class="logo">
       <div class="made">СОЗДАНО</div>
       <div class="name">АНДРЕЕМ</div>
-      <div class="sub">реалистичный 3D-эффект без очков</div>
+      <div class="sub">реалистичный 3D-эффект без очков (Safari-ready)</div>
       <button id="startBtn" class="start">НАЧАТЬ</button>
       <div id="miniTip" style="opacity:.7;margin-top:8px;font-size:12px"></div>
     </div>
@@ -69,17 +89,22 @@
   <div id="diag"></div>
 </div>
 
-<!-- non-module libs (совместимо с Safari/GitHub Pages) -->
+<!-- three.js + анаглиф + пост-процессинг (UMD) -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/effects/AnaglyphEffect.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 
-<!-- MediaPipe FaceMesh UMD -->
+<!-- MediaPipe FaceMesh (UMD) -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
 'use strict';
-
 /* ===== Elements ===== */
 const app = document.getElementById('app');
 const canvas = document.getElementById('gl');
@@ -88,49 +113,53 @@ const startBtn = document.getElementById('startBtn');
 const splash = document.getElementById('splash');
 const miniTip = document.getElementById('miniTip');
 const statusEl = document.getElementById('status');
+const wowBtn = document.getElementById('wow');
 const toggleTrackBtn = document.getElementById('toggleTrack');
 const modeSel = document.getElementById('mode');
 const optAnaglyph = document.getElementById('optAnaglyph');
 const depthRange = document.getElementById('depth');
+const popRange = document.getElementById('pop');
+const mirrorX = document.getElementById('mirrorX');
 const showDbg = document.getElementById('showDbg');
+const calibBtn = document.getElementById('calib');
 const video = document.getElementById('video');
 const dbg = document.getElementById('dbg');
 const dbgCtx = dbg.getContext('2d');
 const diag = document.getElementById('diag');
 
 /* ===== State ===== */
-let renderer, scene, camera, effect = null, effectCtor = null;
-let faceMesh = null, cameraWrapper = null, trackingEnabled = true, stream = null;
+let renderer, scene, camera, effect=null, effectCtor=null;
+let composer=null, renderPass=null, bloomPass=null;
+let faceMesh=null, cameraWrapper=null, trackingEnabled=true, stream=null;
+
 const S = {
-  w:0,h:0,dpr:Math.min(window.devicePixelRatio||1,2),
-  hcp:true, depth:1.1,
-  face:{ok:false,cx:.5,cy:.5,eye:.15,ts:0},
+  w:0,h:0,dpr:Math.min(devicePixelRatio||1,2),
+  hcp:true, depth:1.2, wow:false,
+  face:{ok:false,cx:.5,cy:.5,eye:.15,ts:0, zeroX:.5,zeroY:.5},
   mouse:{x:.5,y:.5,active:false},
   targetCam:new THREE.Vector3(0,1.4,5.8),
-  lookAt:new THREE.Vector3(0,1.2,0)
+  lookAt:new THREE.Vector3(0,1.2,0),
+  viewShiftX:0.55, viewShiftY:0.35,    // сила смещения frustum (off-axis)
+  popOut:0.4                              // «вылет за экран» (движение сцены вперёд)
 };
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
 
 /* ===== Diagnostics ===== */
-function showDiag(msg){
-  diag.style.display='block';
-  diag.textContent = msg;
-}
-function preflight(){
+function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; }
+(function preflight(){
   const insideIframe = window.top !== window.self;
   const secure = window.isSecureContext || location.hostname==='localhost';
   if(insideIframe) showDiag('Сайт открыт ВНУТРИ iframe → в Safari камера часто рубится. Открой в новой вкладке.');
   if(!secure) miniTip.textContent='Открой через https или http://localhost — в file:// камера блокируется.';
-}
-preflight();
+})();
 
 /* ===== Start ===== */
 startBtn.addEventListener('click', function(){
   splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 600);
   ui.hidden = false;
   start3D();
-  startCameraAndTracking(); // запрос к камере — прямо из этого клика
+  startCameraAndTracking(); // запрос к камере — из этого клика
   window.addEventListener('pointermove', (e)=>{
     const r = app.getBoundingClientRect();
     S.mouse.x = clamp((e.clientX - r.left)/r.width, 0, 1);
@@ -140,26 +169,30 @@ startBtn.addEventListener('click', function(){
 });
 
 /* ===== UI ===== */
+wowBtn.addEventListener('click', ()=>{
+  S.wow = !S.wow;
+  wowBtn.textContent = 'WOW: ' + (S.wow ? 'вкл' : 'выкл');
+  // буст настроек
+  if(bloomPass) bloomPass.strength = S.wow ? 1.15 : 0.6;
+  S.depth = S.wow ? 1.8 : (depthRange.value/100);
+  S.popOut = S.wow ? 0.75 : (popRange.value/100);
+  status('WOW ' + (S.wow?'ON':'OFF'));
+});
 toggleTrackBtn.addEventListener('click', ()=>{
   trackingEnabled = !trackingEnabled;
   toggleTrackBtn.textContent = 'Трекинг: ' + (trackingEnabled ? 'вкл' : 'выкл');
   if(!trackingEnabled){ S.face.ok=false; video.style.display='none'; }
 });
-modeSel.addEventListener('change', ()=>{
-  S.hcp = (modeSel.value==='hcp');
-  status('Режим: '+(S.hcp?'HCP':'Анаглиф'));
-});
-depthRange.addEventListener('input', ()=>{
-  S.depth = depthRange.value/100;
-  if(effect && effect.setEyeSeparation) effect.setEyeSeparation(clamp(0.06*S.depth,0,0.12));
-});
-showDbg.addEventListener('change', ()=>{
-  const v=showDbg.checked; video.style.display=v?'block':'none'; dbg.style.display=v?'block':'none';
-});
+modeSel.addEventListener('change', ()=>{ S.hcp=(modeSel.value==='hcp'); status('Режим: '+(S.hcp?'HCP':'Анаглиф')); });
+depthRange.addEventListener('input', ()=>{ if(!S.wow) S.depth=depthRange.value/100; effect && effect.setEyeSeparation && effect.setEyeSeparation(clamp(0.06*S.depth,0,0.12)); });
+popRange.addEventListener('input', ()=>{ if(!S.wow) S.popOut=popRange.value/100; });
+showDbg.addEventListener('change', ()=>{ const v=showDbg.checked; video.style.display=v?'block':'none'; dbg.style.display=v?'block':'none'; });
+calibBtn.addEventListener('click', ()=>{ S.face.zeroX = S.face.cx; S.face.zeroY = S.face.cy; status('Калибровка по центру выполнена'); });
 
 /* ===== 3D ===== */
+let group, knot, frameMesh;
 function start3D(){
-  renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias:true });
+  renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
   renderer.setPixelRatio(S.dpr);
 
   scene = new THREE.Scene();
@@ -169,39 +202,39 @@ function start3D(){
   camera = new THREE.PerspectiveCamera(55,1,0.1,200);
   camera.position.copy(S.targetCam); camera.lookAt(S.lookAt);
 
-  // SAFE-анаглиф: проверяем где лежит конструктор
+  // анаглиф, если доступен
   effectCtor = (window.THREE && THREE.AnaglyphEffect) || window.AnaglyphEffect || null;
   if(effectCtor){
-    try{
-      effect = new effectCtor(renderer);
-      effect.setEyeSeparation && effect.setEyeSeparation(0.06);
-    }catch(e){
-      effect = null; effectCtor = null;
-      console.warn('AnaglyphEffect недоступен:', e);
-    }
+    try{ effect = new effectCtor(renderer); effect.setEyeSeparation && effect.setEyeSeparation(0.06); }
+    catch(e){ effect=null; effectCtor=null; }
   }
-  if(!effectCtor){
-    // спрячем пункт «Анаглиф», чтобы пользователь не выбирал его
-    if(optAnaglyph) optAnaglyph.remove();
-    S.hcp = true;
-  }
+  if(!effectCtor && optAnaglyph){ optAnaglyph.remove(); S.hcp=true; }
+
+  // bloom composer (только для обычного рендера, без анаглифа)
+  try{
+    composer = new THREE.EffectComposer(renderer);
+    renderPass = new THREE.RenderPass(scene, camera);
+    composer.addPass(renderPass);
+    bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(1024, 1024), 0.6, 0.6, 0.85);
+    composer.addPass(bloomPass);
+  }catch(e){ composer=null; }
 
   // lights
   const hemi = new THREE.HemisphereLight(0xbdd7ff,0x0a0f14,.9); scene.add(hemi);
-  const key = new THREE.DirectionalLight(0xffffff,1.1); key.position.set(5,7,4); scene.add(key);
-  const rim = new THREE.DirectionalLight(0x88ccff,.6); rim.position.set(-6,4,-3); scene.add(rim);
+  const key = new THREE.DirectionalLight(0xffffff,1.2); key.position.set(5,7,4); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x88ccff,.7); rim.position.set(-6,4,-3); scene.add(rim);
 
-  // floor + grid
+  // пол + сетка
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(200,200),
-    new THREE.MeshStandardMaterial({color:0x0e1420, metalness:.1, roughness:.8}));
+    new THREE.MeshStandardMaterial({color:0x0e1420, metalness:.1, roughness:.85}));
   plane.rotation.x=-Math.PI/2; scene.add(plane);
   const grid = new THREE.GridHelper(200,80,0x1b2838,0x152031); grid.position.y=.002; scene.add(grid);
 
-  // content
-  const group = new THREE.Group(); scene.add(group);
+  // сцена
+  group = new THREE.Group(); scene.add(group);
   const metal = new THREE.MeshStandardMaterial({color:0x87baff, metalness:.9, roughness:.22});
   const glass = new THREE.MeshPhysicalMaterial({color:0xffffff, metalness:0, roughness:.08, transmission:.96, thickness:.9, transparent:true});
-  const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1,.36,256,32), metal); knot.position.set(0,1.5,0); group.add(knot);
+  knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1,.36,256,32), metal); knot.position.set(0,1.5,0); group.add(knot);
   for(let i=0;i<8;i++){ const s=new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(.18,.34),48,32),glass);
     s.position.set(THREE.MathUtils.randFloatSpread(6),THREE.MathUtils.randFloat(.6,2.2),THREE.MathUtils.randFloatSpread(6)); group.add(s); }
   const boxMat = new THREE.MeshStandardMaterial({color:0x7ef7d2, metalness:.6, roughness:.35});
@@ -209,63 +242,99 @@ function start3D(){
     b.position.set(THREE.MathUtils.randFloatSpread(10),THREE.MathUtils.randFloat(.3,3.5),THREE.MathUtils.randFloatSpread(10));
     b.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,0); group.add(b); }
 
+  // «рамка экрана» в 3D для сильнее «за экран»
+  const frameShape = new THREE.Shape();
+  const W=8, H=4.5, thick=0.25;
+  frameShape.moveTo(-W/2,-H/2); frameShape.lineTo(W/2,-H/2); frameShape.lineTo(W/2,H/2); frameShape.lineTo(-W/2,H/2); frameShape.lineTo(-W/2,-H/2);
+  const hole = new THREE.Path(); hole.moveTo(-W/2+thick,-H/2+thick); hole.lineTo(W/2-thick,-H/2+thick); hole.lineTo(W/2-thick,H/2-thick); hole.lineTo(-W/2+thick,H/2-thick); hole.lineTo(-W/2+thick,-H/2+thick);
+  frameShape.holes.push(hole);
+  const frameGeo = new THREE.ShapeGeometry(frameShape);
+  const frameMat = new THREE.MeshStandardMaterial({color:0x152031, metalness:.4, roughness:.4});
+  frameMesh = new THREE.Mesh(frameGeo, frameMat);
+  frameMesh.position.set(0,1.2, S.targetCam.z - 0.5); // близко к камере
+  scene.add(frameMesh);
+
   window.addEventListener('resize', onResize); onResize();
   const clock = new THREE.Clock();
   renderer.setAnimationLoop(()=>{
     const t = clock.getElapsedTime();
     knot.rotation.x=t*.35; knot.rotation.y=t*.22;
     group.children.forEach((o,idx)=>{ if(o===knot) return; o.position.y += Math.sin(t*.9+idx)*0.0009; o.rotation.y += 0.003*(idx%3?1:-1); });
+
     updateParallax();
-    if(!S.hcp && effect) effect.render(scene,camera); else renderer.render(scene,camera);
+
+    // рендер: либо анаглиф, либо обычный (с bloom)
+    if(!S.hcp && effect){ effect.render(scene,camera); }
+    else if(composer){ composer.render(); }
+    else { renderer.render(scene,camera); }
   });
   status('3D готово');
 }
-function onResize(){ S.w=app.clientWidth; S.h=app.clientHeight; camera.aspect=S.w/S.h; camera.updateProjectionMatrix(); renderer.setSize(S.w,S.h,false); if(effect && effect.setSize) effect.setSize(S.w,S.h); }
+function onResize(){
+  S.w=app.clientWidth; S.h=app.clientHeight;
+  camera.aspect=S.w/S.h; camera.updateProjectionMatrix();
+  renderer.setSize(S.w,S.h,false);
+  if(effect && effect.setSize) effect.setSize(S.w,S.h);
+  if(composer) composer.setSize(S.w,S.h);
+}
 
 let _sx=0,_sy=0,_sz=0;
 function updateParallax(){
+  // источник: лицо → мышь
   let nx=.5, ny=.5, dist=1;
   if(S.face.ok){
-    nx=clamp(S.face.cx,0,1); ny=clamp(S.face.cy,0,1);
+    nx = clamp(S.face.cx,0,1);
+    ny = clamp(S.face.cy,0,1);
     const d=clamp(S.face.eye,0.08,0.35);
-    dist=THREE.MathUtils.mapLinear(d,0.08,0.35,1.8,0.6);
+    dist = THREE.MathUtils.mapLinear(d,0.08,0.35,1.8,0.6);
   } else if(S.mouse.active){
     nx=S.mouse.x; ny=S.mouse.y;
   }
+
+  // калибровка нуля (центр экрана)
+  nx = clamp(nx - (S.face.zeroX-0.5), 0, 1);
+  ny = clamp(ny - (S.face.zeroY-0.5), 0, 1);
+
+  // «вылет за экран»: двигаем весь контент ближе/дальше
+  const baseZ = THREE.MathUtils.lerp(0, -1.3, S.popOut); // в минус — ближе к камере
+  group.position.z = baseZ;
+  // лёгкий масштаб для акцента pop-out
+  const sc = 1 + S.popOut*0.25; group.scale.set(sc,sc,sc);
+
+  // классический HCP-shift
   const maxX=0.9*S.depth*dist, maxY=0.6*S.depth*dist, maxZ=0.9*S.depth*dist;
   const tx=THREE.MathUtils.mapLinear(nx,0,1,-maxX,maxX);
   const ty=THREE.MathUtils.mapLinear(ny,0,1, maxY,-maxY);
   const tz=S.targetCam.z + THREE.MathUtils.mapLinear(nx,0,1,maxZ,-maxZ)*0.15;
 
   _sx=lerp(_sx,tx,.08); _sy=lerp(_sy,ty,.08); _sz=lerp(_sz,tz,.08);
-  camera.position.set(_sx,1.4+_sy*0.3,_sz);
-  camera.lookAt(S.lookAt.x+_sx*0.2,S.lookAt.y+_sy*0.2,S.lookAt.z);
+
+  camera.position.set(_sx, 1.4 + _sy*0.3, _sz);
+  camera.lookAt(S.lookAt.x + _sx*0.2, S.lookAt.y + _sy*0.2, S.lookAt.z);
+
+  // ✨ off-axis: смещаем пирамиду камеры → окно-в-мир
+  const offX = (nx-0.5) * S.viewShiftX * S.w;
+  const offY = (ny-0.5) * S.viewShiftY * S.h;
+  camera.setViewOffset(S.w, S.h, offX, offY, S.w, S.h);
+
+  // рамка подстраивается
+  frameMesh.position.x = _sx*0.2; frameMesh.position.y = 1.2 + _sy*0.15;
 }
 
-/* ===== Camera + FaceMesh (совместимо с разными глобалами) ===== */
+/* ===== Camera + FaceMesh ===== */
 function startCameraAndTracking(){
-  // Определяем корректные конструкторы
   const FaceMeshCtor = (window.FaceMesh && window.FaceMesh.FaceMesh) || window.FaceMesh || null;
   const CameraCtor   = window.Camera || (window.CameraUtils && window.CameraUtils.Camera) || null;
-
-  if(!FaceMeshCtor){
-    showDiag('Не найден FaceMesh (UMD). CDN мог не загрузиться. Обнови страницу/сеть.');
-  }
+  if(!FaceMeshCtor){ showDiag('Не найден FaceMesh (CDN). Обнови страницу/сеть.'); return; }
 
   try{
     faceMesh = new FaceMeshCtor({
       locateFile: (file)=> `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
     });
-    faceMesh.setOptions({
-      maxNumFaces: 1,
-      refineLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    });
+    faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
     faceMesh.onResults(onFaceResults);
 
     if(CameraCtor){
-      // MediaPipe Camera wrapper — сам вызывает getUserMedia в рамках клика
       cameraWrapper = new CameraCtor(video, {
         onFrame: async () => { if(trackingEnabled) await faceMesh.send({ image: video }); },
         width: 1280, height: 720
@@ -273,25 +342,16 @@ function startCameraAndTracking(){
       cameraWrapper.start()
         .then(()=>{ status('Камера: ок'); if(showDbg.checked) video.style.display='block'; })
         .catch(handleCamError);
-    } else {
-      // Чистый getUserMedia fallback
+    }else{
       navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} }, audio:false })
-        .then(s=>{
-          stream = s; video.srcObject = s; return video.play();
-        })
-        .then(()=>{
-          status('Камера: ок'); if(showDbg.checked) video.style.display='block';
-          const tick = async ()=>{
-            if(trackingEnabled) await faceMesh.send({ image: video });
-            requestAnimationFrame(tick);
-          };
+        .then(s=>{ stream=s; video.srcObject=s; return video.play(); })
+        .then(()=>{ status('Камера: ок'); if(showDbg.checked) video.style.display='block';
+          const tick = async ()=>{ if(trackingEnabled) await faceMesh.send({ image: video }); requestAnimationFrame(tick); };
           requestAnimationFrame(tick);
         })
         .catch(handleCamError);
     }
-  }catch(err){
-    handleCamError(err);
-  }
+  }catch(err){ handleCamError(err); }
 }
 
 function onFaceResults(results){
@@ -303,17 +363,33 @@ function onFaceResults(results){
       const cx = (L.x + R.x)/2;
       const cy = (L.y + R.y)/2;
       const d  = Math.hypot(L.x - R.x, L.y - R.y);
+
+      // зеркальность настраивается чекбоксом
+      const flip = !!mirrorX.checked;
+      const cxAdj = flip ? (1 - cx) : cx;
+
       S.face.ok = true;
-      S.face.cx = 1 - cx;
+      S.face.cx = cxAdj;
       S.face.cy = cy;
       S.face.eye = d;
       S.face.ts = performance.now();
 
       if(showDbg.checked){
+        dbgCtx.save();
+        // показываем видеопоток с «зеркалом», как в обычных селфи-превью
+        if(flip){ dbgCtx.translate(dbg.width,0); dbgCtx.scale(-1,1); }
         dbgCtx.drawImage(video, 0, 0, dbg.width, dbg.height);
+        dbgCtx.restore();
+
         dbgCtx.fillStyle="#00ff90";
-        dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-L.x), dbg.height*L.y, 3, 0, Math.PI*2); dbgCtx.fill();
-        dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-R.x), dbg.height*R.y, 3, 0, Math.PI*2); dbgCtx.fill();
+        const drawX = (u)=> (flip ? (dbg.width*(u)) : (dbg.width*(1-u)));
+        // точки глаз
+        dbgCtx.beginPath(); dbgCtx.arc(drawX(L.x), dbg.height*L.y, 3, 0, Math.PI*2); dbgCtx.fill();
+        dbgCtx.beginPath(); dbgCtx.arc(drawX(R.x), dbg.height*R.y, 3, 0, Math.PI*2); dbgCtx.fill();
+
+        // центр
+        const cxPix = dbg.width * (flip ? cx : (1-cx));
+        dbgCtx.fillStyle="#00a0ff"; dbgCtx.fillRect(cxPix-2, dbg.height*cy-2, 4, 4);
       }
       return;
     }
@@ -325,8 +401,8 @@ function handleCamError(err){
   let msg = 'Камеру получить не удалось.\n';
   if(err){ msg += (err.name||'') + (err.message? (': '+err.message):''); }
   msg += '\n• Safari: Safari → Settings for This Website… → Camera: Allow';
-  msg += '\n• Или Safari → Settings → Websites → Camera → для домена поставить Allow/Ask';
-  msg += '\n• Если в предпросмотре/iframe — открой в новой вкладке.';
+  msg += '\n• Или Safari → Settings → Websites → Camera → домен в Allow/Ask';
+  msg += '\n• Если это предпросмотр/iframe — открой в новой вкладке.';
   showDiag(msg);
   status('Камера недоступна — параллакс по мыши работает');
 }

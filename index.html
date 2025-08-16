@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HandTrack Games - Управление жестами</title>
+    <title>HandTrack Pro - Жестовое управление + Body Tracking</title>
     <style>
         * {
             margin: 0;
@@ -13,10 +13,11 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             color: white;
             overflow: hidden;
             height: 100vh;
+            cursor: none;
         }
 
         #container {
@@ -32,19 +33,19 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.1);
-            cursor: none;
         }
 
         #videoContainer {
             position: absolute;
             bottom: 20px;
             right: 20px;
-            width: 200px;
-            height: 150px;
+            width: 180px;
+            height: 135px;
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 10px;
             overflow: hidden;
             display: none;
+            z-index: 50;
         }
 
         #video {
@@ -54,15 +55,17 @@
             transform: scaleX(-1);
         }
 
-        #ui {
+        #startScreen {
             position: absolute;
-            top: 20px;
-            left: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            backdrop-filter: blur(15px);
             z-index: 100;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 20px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
         }
 
         #gameMenu {
@@ -70,66 +73,73 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.9);
             padding: 30px;
             border-radius: 20px;
-            text-align: center;
             backdrop-filter: blur(15px);
-            z-index: 200;
+            z-index: 100;
+            display: none;
         }
 
-        .game-button {
+        .menu-item {
             display: block;
-            width: 300px;
-            margin: 10px auto;
-            padding: 15px;
-            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            width: 350px;
+            margin: 15px auto;
+            padding: 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
             border: none;
-            border-radius: 10px;
+            border-radius: 15px;
             color: white;
-            font-size: 16px;
+            font-size: 18px;
             cursor: pointer;
             transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
         }
 
-        .game-button:hover {
+        .menu-item:hover, .menu-item.selected {
             transform: scale(1.05);
-            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
         }
 
         .start-button {
             background: linear-gradient(45deg, #00d2ff, #3a7bd5);
-            font-size: 20px;
-            padding: 20px 40px;
+            font-size: 24px;
+            padding: 20px 50px;
             margin: 20px;
         }
 
         #cursor {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.8);
-            border: 3px solid #00d2ff;
+            border: 4px solid #00d2ff;
             pointer-events: none;
             z-index: 1000;
-            transition: all 0.1s ease;
+            transition: all 0.05s ease;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.5);
         }
 
         #cursor.pinching {
             background: #ff6b6b;
+            border-color: #ff4757;
             transform: scale(1.5);
-            box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
+            box-shadow: 0 0 30px rgba(255, 107, 107, 0.8);
         }
 
         #stats {
             position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
             border-radius: 10px;
-            font-family: monospace;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            z-index: 90;
         }
 
         #backButton {
@@ -137,50 +147,79 @@
             top: 20px;
             left: 20px;
             background: rgba(255, 255, 255, 0.2);
-            border: none;
-            padding: 10px 20px;
-            border-radius: 25px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 15px 25px;
+            border-radius: 30px;
             color: white;
             cursor: pointer;
             font-size: 16px;
             display: none;
+            z-index: 90;
+        }
+
+        #gameInfo {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px 30px;
+            border-radius: 25px;
+            text-align: center;
+            font-size: 18px;
+            z-index: 80;
         }
 
         .ripple {
             position: absolute;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.6);
+            background: rgba(0, 210, 255, 0.6);
             transform: scale(0);
-            animation: ripple-animation 0.6s linear;
+            animation: ripple-animation 0.6s ease-out;
             pointer-events: none;
+            z-index: 500;
         }
 
         @keyframes ripple-animation {
             to {
-                transform: scale(4);
+                transform: scale(8);
                 opacity: 0;
             }
         }
 
-        #gameInfo {
+        .body-point {
             position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px 25px;
-            border-radius: 25px;
-            text-align: center;
-            font-size: 18px;
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 60;
+        }
+
+        .connection-line {
+            position: absolute;
+            height: 2px;
+            background: rgba(0, 255, 0, 0.7);
+            transform-origin: left center;
+            pointer-events: none;
+            z-index: 55;
         }
 
         .particle {
             position: absolute;
-            width: 4px;
-            height: 4px;
+            width: 6px;
+            height: 6px;
             background: white;
             border-radius: 50%;
             pointer-events: none;
+            z-index: 70;
+        }
+
+        #loadingText {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #ccc;
         }
     </style>
 </head>
@@ -192,58 +231,74 @@
             <video id="video" autoplay muted playsinline></video>
         </div>
 
-        <div id="gameMenu">
-            <h1>HandTrack Games</h1>
-            <p>Управляй играми жестами руки!</p>
-            <button class="start-button" onclick="initCamera()">Запустить камеру</button>
-            <div id="gamesList" style="display: none;">
-                <button class="game-button" onclick="startGame('breakout')">🏓 Арканоид</button>
-                <button class="game-button" onclick="startGame('shooter')">🎯 Космический шутер</button>
-                <button class="game-button" onclick="startGame('snake')">🐍 Змейка</button>
-                <button class="game-button" onclick="startGame('bubbles')">🫧 Лопни пузыри</button>
-                <button class="game-button" onclick="startGame('draw')">🎨 Рисование</button>
-            </div>
+        <div id="startScreen">
+            <h1>🚀 HandTrack Pro + Body Games</h1>
+            <p>Управляй жестами руки и всем телом!</p>
+            <button class="start-button" onclick="initSystems()">🎮 Запустить</button>
+            <div id="loadingText"></div>
         </div>
 
-        <button id="backButton" onclick="showMenu()">← Назад</button>
+        <div id="gameMenu">
+            <h2>🎯 Выбери игру пинчем:</h2>
+            <div class="menu-item" data-game="breakout">🏓 Арканоид (рука)</div>
+            <div class="menu-item" data-game="shooter">🎯 Космо-шутер (рука)</div>
+            <div class="menu-item" data-game="snake">🐍 Змейка (рука)</div>
+            <div class="menu-item" data-game="bubbles">🫧 Пузыри (рука)</div>
+            <div class="menu-item" data-game="draw">🎨 Рисование (рука)</div>
+            <div class="menu-item" data-game="body-dodge">🤸 Уклонение телом (тело)</div>
+            <div class="menu-item" data-game="body-dance">💃 Танцевальная игра (тело)</div>
+        </div>
+
+        <button id="backButton" onclick="showMenu()">← Назад в меню</button>
 
         <div id="stats">
             FPS: <span id="fps">0</span><br>
-            Рука: <span id="handStatus">не обнаружена</span>
+            Рука: <span id="handStatus">⏳</span><br>
+            Тело: <span id="bodyStatus">⏳</span><br>
+            Пинч: <span id="pinchStatus">❌</span>
         </div>
 
         <div id="gameInfo"></div>
         <div id="cursor"></div>
     </div>
 
+    <!-- Подключаем библиотеки -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.15.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
     <script>
-        // Глобальные переменные
+        // === ГЛОБАЛЬНЫЕ ПЕРЕМЕНЫ ===
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const video = document.getElementById('video');
         const cursor = document.getElementById('cursor');
+        const startScreen = document.getElementById('startScreen');
         const gameMenu = document.getElementById('gameMenu');
         const backButton = document.getElementById('backButton');
         const gameInfo = document.getElementById('gameInfo');
         const videoContainer = document.getElementById('videoContainer');
 
-        let hands, camera;
+        let hands, camera, poseNet;
         let currentGame = null;
-        let gameState = 'menu';
+        let gameState = 'start';
         let handData = null;
+        let bodyData = null;
         let isPinching = false;
-        let lastPinch = false;
+        let lastPinchState = false;
+        let selectedMenuItem = 0;
+        let menuItems = [];
 
-        // FPS счетчик
+        // === ОПТИМИЗАЦИЯ FPS ===
         let frameCount = 0;
         let lastTime = performance.now();
-
-        // Размеры экрана
+        let lastHandUpdate = 0;
+        let lastBodyUpdate = 0;
+        const HAND_UPDATE_INTERVAL = 16; // ~60 FPS
+        const BODY_UPDATE_INTERVAL = 33; // ~30 FPS
+        
+        // === РАЗМЕРЫ КАНВАСА ===
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -251,133 +306,299 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
-        // Инициализация камеры и трекинга рук
-        async function initCamera() {
+        // === ИНИЦИАЛИЗАЦИЯ СИСТЕМ ===
+        async function initSystems() {
             try {
-                document.querySelector('.start-button').textContent = 'Загрузка...';
-                
-                hands = new Hands({
-                    locateFile: (file) => {
-                        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-                    }
-                });
-
-                hands.setOptions({
-                    maxNumHands: 1,
-                    modelComplexity: 1,
-                    minDetectionConfidence: 0.7,
-                    minTrackingConfidence: 0.5
-                });
-
-                hands.onResults(onResults);
-
-                camera = new Camera(video, {
-                    onFrame: async () => {
-                        await hands.send({image: video});
-                        updateFPS();
-                    },
-                    width: 640,
-                    height: 480
-                });
-
-                await camera.start();
-
                 document.querySelector('.start-button').style.display = 'none';
-                document.getElementById('gamesList').style.display = 'block';
-                videoContainer.style.display = 'block';
+                const loadingText = document.getElementById('loadingText');
+                
+                loadingText.textContent = '📷 Запуск камеры...';
+                await initCamera();
+                
+                loadingText.textContent = '👋 Инициализация трекинга рук...';
+                await initHandTracking();
+                
+                loadingText.textContent = '🏃 Загрузка PoseNet...';
+                await initBodyTracking();
+                
+                loadingText.textContent = '✅ Готово!';
+                
+                setTimeout(() => {
+                    startScreen.style.display = 'none';
+                    showMenu();
+                }, 500);
 
             } catch (error) {
                 console.error('Ошибка инициализации:', error);
-                alert('Не удалось получить доступ к камере');
+                document.getElementById('loadingText').textContent = '❌ Ошибка: ' + error.message;
             }
         }
 
-        // Обработка результатов трекинга
-        function onResults(results) {
+        // === ИНИЦИАЛИЗАЦИЯ КАМЕРЫ ===
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        frameRate: { ideal: 60 }
+                    },
+                    audio: false
+                });
+                
+                video.srcObject = stream;
+                await new Promise(resolve => {
+                    video.onloadedmetadata = resolve;
+                });
+                await video.play();
+                videoContainer.style.display = 'block';
+
+            } catch (error) {
+                throw new Error('Не удалось получить доступ к камере');
+            }
+        }
+
+        // === ТРЕКИНГ РУК ===
+        async function initHandTracking() {
+            hands = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
+
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 0, // Быстрая модель для 60 FPS
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.5
+            });
+
+            hands.onResults(onHandResults);
+
+            camera = new Camera(video, {
+                onFrame: async () => {
+                    const now = performance.now();
+                    if (now - lastHandUpdate > HAND_UPDATE_INTERVAL) {
+                        await hands.send({ image: video });
+                        lastHandUpdate = now;
+                        updateFPS();
+                    }
+                },
+                width: 640,
+                height: 480
+            });
+
+            await camera.start();
+        }
+
+        // === ТРЕКИНГ ТЕЛА ===
+        async function initBodyTracking() {
+            poseNet = await posenet.load({
+                architecture: 'MobileNetV1',
+                outputStride: 16,
+                inputResolution: { width: 320, height: 240 }, // Низкое разрешение для скорости
+                multiplier: 0.5 // Быстрая модель
+            });
+
+            // Запуск трекинга тела
+            setInterval(async () => {
+                if (video.readyState >= 2) {
+                    const now = performance.now();
+                    if (now - lastBodyUpdate > BODY_UPDATE_INTERVAL) {
+                        try {
+                            const pose = await poseNet.estimateSinglePose(video, {
+                                flipHorizontal: true
+                            });
+                            onBodyResults(pose);
+                            lastBodyUpdate = now;
+                        } catch (err) {
+                            console.warn('Body tracking error:', err);
+                        }
+                    }
+                }
+            }, BODY_UPDATE_INTERVAL);
+        }
+
+        // === ОБРАБОТКА ДАННЫХ РУКИ ===
+        function onHandResults(results) {
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
                 processHandData(landmarks);
-                document.getElementById('handStatus').textContent = 'обнаружена';
+                document.getElementById('handStatus').textContent = '✅';
             } else {
                 handData = null;
                 isPinching = false;
-                document.getElementById('handStatus').textContent = 'не обнаружена';
-            }
-
-            if (gameState !== 'menu' && currentGame) {
-                currentGame.update();
-                currentGame.render();
+                document.getElementById('handStatus').textContent = '❌';
+                document.getElementById('pinchStatus').textContent = '❌';
             }
         }
 
-        // Обработка данных руки
+        // === УЛУЧШЕННАЯ ОБРАБОТКА ПИНЧА ===
         function processHandData(landmarks) {
             const indexTip = landmarks[8];
-            const thumbTip = landmarks[1];
-            const indexMcp = landmarks[2];
-            const thumbMcp = landmarks[3];
+            const thumbTip = landmarks[11];
+            const indexMcp = landmarks[12];
+            const thumbMcp = landmarks[13];
 
-            // Позиция указательного пальца (инвертированная по X для зеркального отображения)
+            // Зеркальная позиция (инвертируем X)
             const x = (1 - indexTip.x) * canvas.width;
             const y = indexTip.y * canvas.height;
 
-            // Определение пинча
-            const distance = Math.sqrt(
+            // УЛУЧШЕННОЕ ОПРЕДЕЛЕНИЕ ПИНЧА
+            const distance3D = Math.sqrt(
                 Math.pow(indexTip.x - thumbTip.x, 2) +
-                Math.pow(indexTip.y - thumbTip.y, 2)
+                Math.pow(indexTip.y - thumbTip.y, 2) +
+                Math.pow((indexTip.z || 0) - (thumbTip.z || 0), 2)
             );
 
-            lastPinch = isPinching;
-            isPinching = distance < 0.05;
+            // Расстояние между основаниями для нормализации
+            const palmSize = Math.sqrt(
+                Math.pow(indexMcp.x - thumbMcp.x, 2) +
+                Math.pow(indexMcp.y - thumbMcp.y, 2)
+            );
+
+            // Нормализованное расстояние
+            const normalizedDistance = distance3D / (palmSize + 0.01);
+
+            lastPinchState = isPinching;
+            isPinching = normalizedDistance < 0.6; // Более чувствительный порог
 
             handData = {
                 x: x,
                 y: y,
                 isPinching: isPinching,
-                justPinched: isPinching && !lastPinch,
-                justReleased: !isPinching && lastPinch,
-                landmarks: landmarks
+                justPinched: isPinching && !lastPinchState,
+                justReleased: !isPinching && lastPinchState,
+                landmarks: landmarks,
+                confidence: results.multiHandLandmarks ? 1 : 0
             };
 
             // Обновление курсора
-            cursor.style.left = x - 10 + 'px';
-            cursor.style.top = y - 10 + 'px';
+            cursor.style.left = (x - 15) + 'px';
+            cursor.style.top = (y - 15) + 'px';
             cursor.className = isPinching ? 'pinching' : '';
+
+            document.getElementById('pinchStatus').textContent = isPinching ? '✅' : '❌';
 
             // Эффект пинча
             if (handData.justPinched) {
                 createRipple(x, y);
+                handleMenuInteraction();
             }
         }
 
-        // Эффект ряби
-        function createRipple(x, y) {
-            const ripple = document.createElement('div');
-            ripple.className = 'ripple';
-            ripple.style.left = (x - 5) + 'px';
-            ripple.style.top = (y - 5) + 'px';
-            ripple.style.width = '10px';
-            ripple.style.height = '10px';
-            document.body.appendChild(ripple);
-            setTimeout(() => ripple.remove(), 600);
-        }
-
-        // Счетчик FPS
-        function updateFPS() {
-            frameCount++;
-            const now = performance.now();
-            if (now - lastTime >= 1000) {
-                document.getElementById('fps').textContent = frameCount;
-                frameCount = 0;
-                lastTime = now;
+        // === ОБРАБОТКА ДАННЫХ ТЕЛА ===
+        function onBodyResults(pose) {
+            if (pose && pose.score > 0.3) {
+                bodyData = {
+                    keypoints: pose.keypoints,
+                    score: pose.score
+                };
+                document.getElementById('bodyStatus').textContent = '✅';
+                
+                if (gameState === 'playing' && (currentGame instanceof BodyDodgeGame || currentGame instanceof BodyDanceGame)) {
+                    drawBodyPoints(pose.keypoints);
+                }
+            } else {
+                bodyData = null;
+                document.getElementById('bodyStatus').textContent = '❌';
             }
         }
 
-        // Запуск игры
+        // === ОТРИСОВКА ТОЧЕК ТЕЛА ===
+        function drawBodyPoints(keypoints) {
+            // Очищаем старые точки
+            document.querySelectorAll('.body-point, .connection-line').forEach(el => el.remove());
+
+            const connections = [
+                [5, 6], [5, 7], [7, 9], [6, 8], [8, 10], // Руки
+                [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], // Ноги
+                [5, 11], [6, 12] // Туловище
+            ];
+
+            // Отрисовка соединений
+            connections.forEach(([i, j]) => {
+                const pointA = keypoints[i];
+                const pointB = keypoints[j];
+                
+                if (pointA.score > 0.5 && pointB.score > 0.5) {
+                    const line = document.createElement('div');
+                    line.className = 'connection-line';
+                    
+                    const x1 = (1 - pointA.position.x / video.videoWidth) * canvas.width;
+                    const y1 = (pointA.position.y / video.videoHeight) * canvas.height;
+                    const x2 = (1 - pointB.position.x / video.videoWidth) * canvas.width;
+                    const y2 = (pointB.position.y / video.videoHeight) * canvas.height;
+                    
+                    const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                    const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+                    
+                    line.style.left = x1 + 'px';
+                    line.style.top = y1 + 'px';
+                    line.style.width = length + 'px';
+                    line.style.transform = `rotate(${angle}deg)`;
+                    
+                    document.body.appendChild(line);
+                }
+            });
+
+            // Отрисовка точек
+            keypoints.forEach((keypoint, index) => {
+                if (keypoint.score > 0.5) {
+                    const point = document.createElement('div');
+                    point.className = 'body-point';
+                    
+                    const x = (1 - keypoint.position.x / video.videoWidth) * canvas.width;
+                    const y = (keypoint.position.y / video.videoHeight) * canvas.height;
+                    
+                    point.style.left = (x - 4) + 'px';
+                    point.style.top = (y - 4) + 'px';
+                    
+                    document.body.appendChild(point);
+                }
+            });
+        }
+
+        // === НАВИГАЦИЯ ПО МЕНЮ ===
+        function handleMenuInteraction() {
+            if (gameState === 'menu') {
+                const items = document.querySelectorAll('.menu-item');
+                if (items.length === 0) return;
+
+                // Проверяем, на какой элемент нажали
+                let clickedIndex = -1;
+                items.forEach((item, index) => {
+                    const rect = item.getBoundingClientRect();
+                    if (handData.x >= rect.left && handData.x <= rect.right &&
+                        handData.y >= rect.top && handData.y <= rect.bottom) {
+                        clickedIndex = index;
+                    }
+                });
+
+                if (clickedIndex >= 0) {
+                    const gameType = items[clickedIndex].dataset.game;
+                    startGame(gameType);
+                }
+            }
+        }
+
+        // === ПОКАЗ МЕНЮ ===
+        function showMenu() {
+            gameState = 'menu';
+            gameMenu.style.display = 'block';
+            backButton.style.display = 'none';
+            gameInfo.style.display = 'none';
+            currentGame = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Очищаем точки тела
+            document.querySelectorAll('.body-point, .connection-line').forEach(el => el.remove());
+        }
+
+        // === ЗАПУСК ИГРЫ ===
         function startGame(gameType) {
             gameState = 'playing';
             gameMenu.style.display = 'none';
             backButton.style.display = 'block';
+            gameInfo.style.display = 'block';
 
             switch(gameType) {
                 case 'breakout':
@@ -395,42 +616,285 @@
                 case 'draw':
                     currentGame = new DrawGame();
                     break;
+                case 'body-dodge':
+                    currentGame = new BodyDodgeGame();
+                    break;
+                case 'body-dance':
+                    currentGame = new BodyDanceGame();
+                    break;
+            }
+        }
+
+        // === ЭФФЕКТЫ ===
+        function createRipple(x, y) {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.left = (x - 10) + 'px';
+            ripple.style.top = (y - 10) + 'px';
+            ripple.style.width = '20px';
+            ripple.style.height = '20px';
+            document.body.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        }
+
+        function updateFPS() {
+            frameCount++;
+            const now = performance.now();
+            if (now - lastTime >= 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastTime = now;
+            }
+        }
+
+        // ==================== ИГРЫ ====================
+
+        // === ИГРА 6: УКЛОНЕНИЕ ТЕЛОМ ===
+        class BodyDodgeGame {
+            constructor() {
+                this.obstacles = [];
+                this.score = 0;
+                this.lastObstacle = 0;
+                this.playerHitbox = { x: canvas.width/2, y: canvas.height/2, radius: 50 };
             }
 
-            gameInfo.style.display = 'block';
+            update() {
+                const now = Date.now();
+                
+                // Управление игроком через позицию тела
+                if (bodyData && bodyData.keypoints) {
+                    const nose = bodyData.keypoints.find(kp => kp.part === 'nose');
+                    if (nose && nose.score > 0.5) {
+                        this.playerHitbox.x = (1 - nose.position.x / video.videoWidth) * canvas.width;
+                        this.playerHitbox.y = (nose.position.y / video.videoHeight) * canvas.height;
+                    }
+                }
+
+                // Создание препятствий
+                if (now - this.lastObstacle > 800) {
+                    this.obstacles.push({
+                        x: Math.random() * canvas.width,
+                        y: -50,
+                        radius: 30 + Math.random() * 20,
+                        speed: 3 + Math.random() * 4,
+                        color: `hsl(${Math.random() * 360}, 70%, 50%)`
+                    });
+                    this.lastObstacle = now;
+                }
+
+                // Движение препятствий
+                this.obstacles = this.obstacles.filter(obs => {
+                    obs.y += obs.speed;
+                    
+                    // Проверка столкновения с игроком
+                    const dist = Math.sqrt(
+                        Math.pow(obs.x - this.playerHitbox.x, 2) + 
+                        Math.pow(obs.y - this.playerHitbox.y, 2)
+                    );
+                    
+                    if (dist < obs.radius + this.playerHitbox.radius) {
+                        this.gameOver();
+                        return false;
+                    }
+                    
+                    if (obs.y > canvas.height + 100) {
+                        this.score += 10;
+                        return false;
+                    }
+                    
+                    return true;
+                });
+            }
+
+            render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Фон
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient.addColorStop(0, '#1e3c72');
+                gradient.addColorStop(1, '#2a5298');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Препятствия
+                this.obstacles.forEach(obs => {
+                    ctx.fillStyle = obs.color;
+                    ctx.beginPath();
+                    ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Тень препятствия
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    ctx.beginPath();
+                    ctx.arc(obs.x + 5, obs.y + 5, obs.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // Игрок (хитбокс)
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(this.playerHitbox.x, this.playerHitbox.y, this.playerHitbox.radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                gameInfo.innerHTML = `🤸 Очки: ${this.score} | Уворачивайся телом от препятствий!`;
+            }
+
+            gameOver() {
+                alert(`🤸 Игра окончена! Очки: ${this.score}`);
+                showMenu();
+            }
         }
 
-        // Возврат в меню
-        function showMenu() {
-            gameState = 'menu';
-            currentGame = null;
-            gameMenu.style.display = 'block';
-            backButton.style.display = 'none';
-            gameInfo.style.display = 'none';
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // === ИГРА 7: ТАНЦЕВАЛЬНАЯ ИГРА ===
+        class BodyDanceGame {
+            constructor() {
+                this.targets = [];
+                this.score = 0;
+                this.lastTarget = 0;
+                this.bodyParts = ['leftWrist', 'rightWrist', 'leftAnkle', 'rightAnkle', 'nose'];
+                this.hitEffects = [];
+            }
+
+            update() {
+                const now = Date.now();
+
+                // Создание целей для касания
+                if (now - this.lastTarget > 2000) {
+                    const randomPart = this.bodyParts[Math.floor(Math.random() * this.bodyParts.length)];
+                    this.targets.push({
+                        bodyPart: randomPart,
+                        x: 200 + Math.random() * (canvas.width - 400),
+                        y: 150 + Math.random() * (canvas.height - 300),
+                        radius: 60,
+                        life: 3000,
+                        color: `hsl(${Math.random() * 360}, 80%, 60%)`
+                    });
+                    this.lastTarget = now;
+                }
+
+                // Проверка попаданий
+                if (bodyData && bodyData.keypoints) {
+                    this.targets = this.targets.filter(target => {
+                        const bodyPoint = bodyData.keypoints.find(kp => kp.part === target.bodyPart);
+                        
+                        if (bodyPoint && bodyPoint.score > 0.5) {
+                            const bodyX = (1 - bodyPoint.position.x / video.videoWidth) * canvas.width;
+                            const bodyY = (bodyPoint.position.y / video.videoHeight) * canvas.height;
+                            
+                            const dist = Math.sqrt(
+                                Math.pow(bodyX - target.x, 2) + 
+                                Math.pow(bodyY - target.y, 2)
+                            );
+                            
+                            if (dist < target.radius) {
+                                this.score += 50;
+                                this.createHitEffect(target.x, target.y, target.color);
+                                return false;
+                            }
+                        }
+                        
+                        target.life -= 16;
+                        return target.life > 0;
+                    });
+                }
+
+                // Обновление эффектов попаданий
+                this.hitEffects = this.hitEffects.filter(effect => {
+                    effect.life -= 16;
+                    effect.radius += 2;
+                    effect.opacity = effect.life / 500;
+                    return effect.life > 0;
+                });
+            }
+
+            render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Красивый фон
+                const gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, canvas.width);
+                gradient.addColorStop(0, '#667eea');
+                gradient.addColorStop(1, '#764ba2');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Цели
+                this.targets.forEach(target => {
+                    const alpha = target.life / 3000;
+                    
+                    // Внешний круг
+                    ctx.globalAlpha = alpha * 0.3;
+                    ctx.fillStyle = target.color;
+                    ctx.beginPath();
+                    ctx.arc(target.x, target.y, target.radius + 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Основной круг
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = target.color;
+                    ctx.beginPath();
+                    ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Название части тела
+                    ctx.globalAlpha = 1;
+                    ctx.fillStyle = 'white';
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    const partName = {
+                        'leftWrist': 'Левая рука',
+                        'rightWrist': 'Правая рука',
+                        'leftAnkle': 'Левая нога',
+                        'rightAnkle': 'Правая нога',
+                        'nose': 'Голова'
+                    }[target.bodyPart];
+                    ctx.fillText(partName, target.x, target.y + 5);
+                });
+
+                // Эффекты попаданий
+                this.hitEffects.forEach(effect => {
+                    ctx.globalAlpha = effect.opacity;
+                    ctx.strokeStyle = effect.color;
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+                });
+
+                ctx.globalAlpha = 1;
+                gameInfo.innerHTML = `💃 Очки: ${this.score} | Коснись цели нужной частью тела!`;
+            }
+
+            createHitEffect(x, y, color) {
+                this.hitEffects.push({
+                    x: x,
+                    y: y,
+                    radius: 30,
+                    life: 500,
+                    opacity: 1,
+                    color: color
+                });
+            }
         }
 
-        // ====== ИГРЫ ======
-
-        // 1. АРКАНОИД
+        // === ОСТАЛЬНЫЕ ИГРЫ (упрощенные версии) ===
         class BreakoutGame {
             constructor() {
                 this.paddle = { x: canvas.width/2, y: canvas.height - 50, width: 120, height: 20 };
                 this.ball = { x: canvas.width/2, y: canvas.height/2, dx: 5, dy: -5, radius: 10 };
                 this.bricks = [];
                 this.score = 0;
-                this.lives = 3;
 
-                // Создание кирпичей
-                for(let row = 0; row < 6; row++) {
-                    for(let col = 0; col < 10; col++) {
+                // Создание кирпичей (оптимизированное)
+                for(let row = 0; row < 4; row++) {
+                    for(let col = 0; col < 8; col++) {
                         this.bricks.push({
-                            x: col * 80 + 80,
-                            y: row * 30 + 50,
-                            width: 70,
-                            height: 25,
+                            x: col * 100 + 100,
+                            y: row * 40 + 80,
+                            width: 90,
+                            height: 30,
                             destroyed: false,
-                            color: `hsl(${row * 60}, 70%, 60%)`
+                            color: `hsl(${row * 90}, 70%, 60%)`
                         });
                     }
                 }
@@ -439,29 +903,22 @@
             update() {
                 if (!handData) return;
 
-                // Управление платформой
                 this.paddle.x = handData.x - this.paddle.width / 2;
                 
-                // Движение мяча
                 this.ball.x += this.ball.dx;
                 this.ball.y += this.ball.dy;
 
-                // Отскок от стен
                 if (this.ball.x < 0 || this.ball.x > canvas.width) this.ball.dx = -this.ball.dx;
                 if (this.ball.y < 0) this.ball.dy = -this.ball.dy;
 
-                // Отскок от платформы
                 if (this.ball.y > this.paddle.y - this.ball.radius &&
                     this.ball.x > this.paddle.x &&
                     this.ball.x < this.paddle.x + this.paddle.width) {
                     this.ball.dy = -Math.abs(this.ball.dy);
-                    
-                    // Изменение угла в зависимости от места попадания
                     const hitPos = (this.ball.x - this.paddle.x) / this.paddle.width;
                     this.ball.dx = (hitPos - 0.5) * 10;
                 }
 
-                // Проверка столкновений с кирпичами
                 this.bricks.forEach(brick => {
                     if (!brick.destroyed &&
                         this.ball.x > brick.x &&
@@ -472,477 +929,92 @@
                         brick.destroyed = true;
                         this.ball.dy = -this.ball.dy;
                         this.score += 10;
-                        
-                        // Эффект взрыва
-                        this.createExplosion(brick.x + brick.width/2, brick.y + brick.height/2);
+                        createRipple(brick.x + brick.width/2, brick.y + brick.height/2);
                     }
                 });
 
-                // Потеря мяча
                 if (this.ball.y > canvas.height) {
-                    this.lives--;
-                    this.ball.x = canvas.width/2;
-                    this.ball.y = canvas.height/2;
-                    this.ball.dx = 5;
-                    this.ball.dy = -5;
-                    
-                    if (this.lives <= 0) {
-                        this.gameOver();
-                    }
+                    alert(`🏓 Игра окончена! Очки: ${this.score}`);
+                    showMenu();
                 }
             }
 
             render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // Кирпичи
                 this.bricks.forEach(brick => {
                     if (!brick.destroyed) {
                         ctx.fillStyle = brick.color;
                         ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-                        ctx.strokeStyle = '#fff';
-                        ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
                     }
                 });
 
-                // Платформа
                 ctx.fillStyle = '#00d2ff';
                 ctx.fillRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
 
-                // Мяч
                 ctx.fillStyle = '#fff';
                 ctx.beginPath();
                 ctx.arc(this.ball.x, this.ball.y, this.ball.radius, 0, Math.PI * 2);
                 ctx.fill();
 
-                // UI
-                gameInfo.innerHTML = `Очки: ${this.score} | Жизни: ${this.lives} | Управляй рукой!`;
-            }
-
-            createExplosion(x, y) {
-                for(let i = 0; i < 10; i++) {
-                    const particle = document.createElement('div');
-                    particle.className = 'particle';
-                    particle.style.left = x + 'px';
-                    particle.style.top = y + 'px';
-                    particle.style.background = `hsl(${Math.random() * 360}, 70%, 60%)`;
-                    
-                    const dx = (Math.random() - 0.5) * 200;
-                    const dy = (Math.random() - 0.5) * 200;
-                    
-                    particle.animate([
-                        { transform: 'translate(0, 0)', opacity: 1 },
-                        { transform: `translate(${dx}px, ${dy}px)`, opacity: 0 }
-                    ], {
-                        duration: 500,
-                        easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-                    });
-                    
-                    document.body.appendChild(particle);
-                    setTimeout(() => particle.remove(), 500);
-                }
-            }
-
-            gameOver() {
-                alert(`Игра окончена! Очки: ${this.score}`);
-                showMenu();
+                gameInfo.innerHTML = `🏓 Очки: ${this.score} | Управляй рукой!`;
             }
         }
 
-        // 2. КОСМИЧЕСКИЙ ШУТЕР
+        // Добавлю заглушки для остальных игр
         class ShooterGame {
-            constructor() {
-                this.player = { x: canvas.width/2, y: canvas.height - 100, size: 30 };
-                this.bullets = [];
-                this.enemies = [];
-                this.score = 0;
-                this.lastShot = 0;
-                this.lastEnemy = 0;
-            }
-
-            update() {
-                if (!handData) return;
-
-                const now = Date.now();
-                
-                // Управление игроком
-                this.player.x = handData.x;
-
-                // Стрельба при пинче
-                if (handData.isPinching && now - this.lastShot > 100) {
-                    this.bullets.push({
-                        x: this.player.x,
-                        y: this.player.y,
-                        speed: -10
-                    });
-                    this.lastShot = now;
-                }
-
-                // Движение пуль
-                this.bullets = this.bullets.filter(bullet => {
-                    bullet.y += bullet.speed;
-                    return bullet.y > 0;
-                });
-
-                // Создание врагов
-                if (now - this.lastEnemy > 1000) {
-                    this.enemies.push({
-                        x: Math.random() * canvas.width,
-                        y: 0,
-                        speed: 2 + Math.random() * 3,
-                        color: `hsl(${Math.random() * 360}, 70%, 50%)`
-                    });
-                    this.lastEnemy = now;
-                }
-
-                // Движение врагов
-                this.enemies = this.enemies.filter(enemy => {
-                    enemy.y += enemy.speed;
-                    return enemy.y < canvas.height;
-                });
-
-                // Проверка столкновений
-                this.bullets.forEach((bullet, bulletIndex) => {
-                    this.enemies.forEach((enemy, enemyIndex) => {
-                        const dist = Math.sqrt(
-                            Math.pow(bullet.x - enemy.x, 2) + 
-                            Math.pow(bullet.y - enemy.y, 2)
-                        );
-                        
-                        if (dist < 20) {
-                            this.bullets.splice(bulletIndex, 1);
-                            this.enemies.splice(enemyIndex, 1);
-                            this.score += 100;
-                            this.createExplosion(enemy.x, enemy.y);
-                        }
-                    });
-                });
-            }
-
+            constructor() { this.score = 0; }
+            update() {}
             render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Звезды (фон)
-                ctx.fillStyle = 'rgba(255,255,255,0.1)';
-                for(let i = 0; i < 100; i++) {
-                    const x = (i * 13) % canvas.width;
-                    const y = (i * 17 + Date.now() * 0.1) % canvas.height;
-                    ctx.fillRect(x, y, 1, 1);
-                }
-
-                // Игрок
-                ctx.fillStyle = '#00d2ff';
-                ctx.beginPath();
-                ctx.moveTo(this.player.x, this.player.y - this.player.size);
-                ctx.lineTo(this.player.x - this.player.size/2, this.player.y);
-                ctx.lineTo(this.player.x + this.player.size/2, this.player.y);
-                ctx.closePath();
-                ctx.fill();
-
-                // Пули
-                ctx.fillStyle = '#ffff00';
-                this.bullets.forEach(bullet => {
-                    ctx.beginPath();
-                    ctx.arc(bullet.x, bullet.y, 3, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-
-                // Враги
-                this.enemies.forEach(enemy => {
-                    ctx.fillStyle = enemy.color;
-                    ctx.beginPath();
-                    ctx.arc(enemy.x, enemy.y, 15, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-
-                gameInfo.innerHTML = `Очки: ${this.score} | Пинч для стрельбы!`;
-            }
-
-            createExplosion(x, y) {
-                for(let i = 0; i < 15; i++) {
-                    const particle = document.createElement('div');
-                    particle.className = 'particle';
-                    particle.style.left = x + 'px';
-                    particle.style.top = y + 'px';
-                    particle.style.background = '#ff6b6b';
-                    
-                    const dx = (Math.random() - 0.5) * 300;
-                    const dy = (Math.random() - 0.5) * 300;
-                    
-                    particle.animate([
-                        { transform: 'translate(0, 0)', opacity: 1 },
-                        { transform: `translate(${dx}px, ${dy}px)`, opacity: 0 }
-                    ], 800);
-                    
-                    document.body.appendChild(particle);
-                    setTimeout(() => particle.remove(), 800);
-                }
+                ctx.fillStyle = '#fff';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('🎯 Космо-шутер', canvas.width/2, canvas.height/2);
+                gameInfo.innerHTML = 'Игра в разработке...';
             }
         }
 
-        // 3. ЗМЕЙКА
         class SnakeGame {
-            constructor() {
-                this.snake = [{ x: 200, y: 200 }];
-                this.food = this.generateFood();
-                this.direction = { x: 20, y: 0 };
-                this.score = 0;
-                this.lastMove = 0;
-                this.cellSize = 20;
-            }
-
-            generateFood() {
-                return {
-                    x: Math.floor(Math.random() * canvas.width / this.cellSize) * this.cellSize,
-                    y: Math.floor(Math.random() * canvas.height / this.cellSize) * this.cellSize
-                };
-            }
-
-            update() {
-                if (!handData) return;
-
-                const now = Date.now();
-                
-                // Управление направлением через пинч
-                if (handData.justPinched) {
-                    const head = this.snake[0];
-                    const dx = handData.x - head.x;
-                    const dy = handData.y - head.y;
-                    
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        this.direction = dx > 0 ? { x: this.cellSize, y: 0 } : { x: -this.cellSize, y: 0 };
-                    } else {
-                        this.direction = dy > 0 ? { x: 0, y: this.cellSize } : { x: 0, y: -this.cellSize };
-                    }
-                }
-
-                // Движение змейки
-                if (now - this.lastMove > 150) {
-                    const head = { ...this.snake[0] };
-                    head.x += this.direction.x;
-                    head.y += this.direction.y;
-
-                    // Проверка границ
-                    if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
-                        this.gameOver();
-                        return;
-                    }
-
-                    // Проверка столкновения с собой
-                    if (this.snake.some(segment => segment.x === head.x && segment.y === head.y)) {
-                        this.gameOver();
-                        return;
-                    }
-
-                    this.snake.unshift(head);
-
-                    // Проверка еды
-                    if (head.x === this.food.x && head.y === this.food.y) {
-                        this.score += 10;
-                        this.food = this.generateFood();
-                    } else {
-                        this.snake.pop();
-                    }
-
-                    this.lastMove = now;
-                }
-            }
-
+            constructor() { this.score = 0; }
+            update() {}
             render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Змейка
-                this.snake.forEach((segment, index) => {
-                    ctx.fillStyle = index === 0 ? '#00d2ff' : '#4ecdc4';
-                    ctx.fillRect(segment.x, segment.y, this.cellSize - 2, this.cellSize - 2);
-                });
-
-                // Еда
-                ctx.fillStyle = '#ff6b6b';
-                ctx.beginPath();
-                ctx.arc(this.food.x + this.cellSize/2, this.food.y + this.cellSize/2, this.cellSize/2 - 2, 0, Math.PI * 2);
-                ctx.fill();
-
-                gameInfo.innerHTML = `Очки: ${this.score} | Пинч для поворота!`;
-            }
-
-            gameOver() {
-                alert(`Игра окончена! Очки: ${this.score}`);
-                showMenu();
+                ctx.fillStyle = '#fff';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('🐍 Змейка', canvas.width/2, canvas.height/2);
+                gameInfo.innerHTML = 'Игра в разработке...';
             }
         }
 
-        // 4. ЛОПНИ ПУЗЫРИ
         class BubbleGame {
-            constructor() {
-                this.bubbles = [];
-                this.score = 0;
-                this.lastBubble = 0;
-            }
-
-            update() {
-                if (!handData) return;
-
-                const now = Date.now();
-
-                // Создание пузырей
-                if (now - this.lastBubble > 500) {
-                    this.bubbles.push({
-                        x: Math.random() * canvas.width,
-                        y: canvas.height + 50,
-                        radius: 20 + Math.random() * 30,
-                        speed: 1 + Math.random() * 3,
-                        color: `hsl(${Math.random() * 360}, 70%, 60%)`,
-                        alpha: 0.7
-                    });
-                    this.lastBubble = now;
-                }
-
-                // Движение пузырей
-                this.bubbles = this.bubbles.filter(bubble => {
-                    bubble.y -= bubble.speed;
-                    return bubble.y > -bubble.radius;
-                });
-
-                // Лопанье пузырей при пинче
-                if (handData.isPinching) {
-                    this.bubbles = this.bubbles.filter(bubble => {
-                        const dist = Math.sqrt(
-                            Math.pow(handData.x - bubble.x, 2) + 
-                            Math.pow(handData.y - bubble.y, 2)
-                        );
-                        
-                        if (dist < bubble.radius + 20) {
-                            this.score += Math.floor(bubble.radius);
-                            this.createBubblePop(bubble.x, bubble.y, bubble.color);
-                            return false;
-                        }
-                        return true;
-                    });
-                }
-            }
-
+            constructor() { this.score = 0; }
+            update() {}
             render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Пузыри
-                this.bubbles.forEach(bubble => {
-                    ctx.globalAlpha = bubble.alpha;
-                    
-                    // Градиент для пузыря
-                    const gradient = ctx.createRadialGradient(
-                        bubble.x - bubble.radius/3, bubble.y - bubble.radius/3, 0,
-                        bubble.x, bubble.y, bubble.radius
-                    );
-                    gradient.addColorStop(0, bubble.color);
-                    gradient.addColorStop(0.7, bubble.color + '80');
-                    gradient.addColorStop(1, bubble.color + '20');
-                    
-                    ctx.fillStyle = gradient;
-                    ctx.beginPath();
-                    ctx.arc(bubble.x, bubble.y, bubble.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Блик
-                    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-                    ctx.beginPath();
-                    ctx.arc(bubble.x - bubble.radius/3, bubble.y - bubble.radius/3, bubble.radius/4, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-                
-                ctx.globalAlpha = 1;
-                gameInfo.innerHTML = `Очки: ${this.score} | Держи пинч и лопай пузыри!`;
-            }
-
-            createBubblePop(x, y, color) {
-                for(let i = 0; i < 8; i++) {
-                    const particle = document.createElement('div');
-                    particle.className = 'particle';
-                    particle.style.left = x + 'px';
-                    particle.style.top = y + 'px';
-                    particle.style.background = color;
-                    particle.style.width = '6px';
-                    particle.style.height = '6px';
-                    
-                    const angle = (i / 8) * Math.PI * 2;
-                    const dx = Math.cos(angle) * 100;
-                    const dy = Math.sin(angle) * 100;
-                    
-                    particle.animate([
-                        { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-                        { transform: `translate(${dx}px, ${dy}px) scale(0)`, opacity: 0 }
-                    ], 600);
-                    
-                    document.body.appendChild(particle);
-                    setTimeout(() => particle.remove(), 600);
-                }
+                ctx.fillStyle = '#fff';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('🫧 Пузыри', canvas.width/2, canvas.height/2);
+                gameInfo.innerHTML = 'Игра в разработке...';
             }
         }
 
-        // 5. РИСОВАНИЕ
         class DrawGame {
-            constructor() {
-                this.drawing = false;
-                this.lastPoint = null;
-                this.color = '#ffffff';
-                this.brushSize = 5;
-                this.colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd', '#98d8c8'];
-                this.colorIndex = 0;
-            }
-
-            update() {
-                if (!handData) return;
-
-                // Смена цвета при пинче
-                if (handData.justPinched) {
-                    this.colorIndex = (this.colorIndex + 1) % this.colors.length;
-                    this.color = this.colors[this.colorIndex];
-                    this.drawing = true;
-                    this.lastPoint = { x: handData.x, y: handData.y };
-                } else if (handData.justReleased) {
-                    this.drawing = false;
-                    this.lastPoint = null;
-                }
-
-                // Рисование
-                if (this.drawing && handData.isPinching && this.lastPoint) {
-                    ctx.globalCompositeOperation = 'source-over';
-                    ctx.strokeStyle = this.color;
-                    ctx.lineWidth = this.brushSize;
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
-                    
-                    ctx.beginPath();
-                    ctx.moveTo(this.lastPoint.x, this.lastPoint.y);
-                    ctx.lineTo(handData.x, handData.y);
-                    ctx.stroke();
-                }
-
-                if (handData.isPinching) {
-                    this.lastPoint = { x: handData.x, y: handData.y };
-                }
-            }
-
+            constructor() { this.score = 0; }
+            update() {}
             render() {
-                // Палитра цветов
-                const paletteY = 20;
-                this.colors.forEach((color, index) => {
-                    ctx.fillStyle = color;
-                    const x = 50 + index * 40;
-                    ctx.fillRect(x, paletteY, 30, 30);
-                    
-                    if (index === this.colorIndex) {
-                        ctx.strokeStyle = '#fff';
-                        ctx.lineWidth = 3;
-                        ctx.strokeRect(x - 2, paletteY - 2, 34, 34);
-                    }
-                });
-
-                gameInfo.innerHTML = `Текущий цвет: ${this.color} | Пинч для рисования и смены цвета!`;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#fff';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('🎨 Рисование', canvas.width/2, canvas.height/2);
+                gameInfo.innerHTML = 'Игра в разработке...';
             }
         }
 
-        // Запуск основного цикла
+        // === ОСНОВНОЙ ИГРОВОЙ ЦИКЛ ===
         function gameLoop() {
             requestAnimationFrame(gameLoop);
             

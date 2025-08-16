@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8" />
-<title>АНДРЕЙ — Реальный 3D без очков (устойчивый старт)</title>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<meta name="color-scheme" content="dark"/>
+<meta charset="utf-8">
+<title>АНДРЕЙ — Реальный 3D без очков (Safari/GitHub-ready)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="color-scheme" content="dark">
 <style>
   :root{ --bg:#070b11; --panel:#0f1520; --line:#ffffff22; --txt:#e8eef7; --accent:#86c9ff; }
   *{ box-sizing:border-box }
@@ -52,11 +52,11 @@
 
   <!-- UI -->
   <div id="ui" hidden>
-    <button id="tryCam" class="btn">Попробовать трекинг (beta)</button>
+    <button id="toggleTrack" class="btn">Трекинг: вкл</button>
     <label>Режим:
       <select id="mode"><option value="hcp">Без очков (HCP)</option><option value="anaglyph">Анаглиф</option></select>
     </label>
-    <label>Глубина: <input id="depth" type="range" min="0" max="200" value="100"/></label>
+    <label>Глубина: <input id="depth" type="range" min="0" max="200" value="110"/></label>
     <label><input type="checkbox" id="showDbg"> Отладка</label>
     <div id="status">Готово</div>
   </div>
@@ -79,10 +79,16 @@
   <div id="diag"></div>
 </div>
 
-<script type="module">
-/* ===== Imports ===== */
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js";
-import { AnaglyphEffect } from "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/effects/AnaglyphEffect.js";
+<!-- --- libs: UMD/не-модульные (совместимы с Safari) --- -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/effects/AnaglyphEffect.js"></script>
+
+<!-- Legacy MediaPipe FaceMesh (работает без ES-модулей) -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<script>
+'use strict';
 
 /* ===== Elements ===== */
 const app = document.getElementById('app');
@@ -92,7 +98,7 @@ const startBtn = document.getElementById('startBtn');
 const splash = document.getElementById('splash');
 const miniTip = document.getElementById('miniTip');
 const statusEl = document.getElementById('status');
-const tryCamBtn = document.getElementById('tryCam');
+const toggleTrackBtn = document.getElementById('toggleTrack');
 const modeSel = document.getElementById('mode');
 const depthRange = document.getElementById('depth');
 const showDbg = document.getElementById('showDbg');
@@ -102,13 +108,13 @@ const dbgCtx = dbg.getContext('2d');
 const diag = document.getElementById('diag');
 
 /* ===== State ===== */
-let renderer, scene, camera, effect, stream=null, faceLandmarker=null;
+let renderer, scene, camera, effect;
+let faceMesh = null, camUtil = null, trackingEnabled = true;
 const S = {
-  w:0,h:0,dpr:Math.min(devicePixelRatio||1,2),
-  hcp:true, depth:1.0,
+  w:0,h:0,dpr:Math.min(window.devicePixelRatio||1,2),
+  hcp:true, depth:1.1,
   face:{ok:false,cx:.5,cy:.5,eye:.15,ts:0},
   mouse:{x:.5,y:.5,active:false},
-  gyro:{enabled:false,x:.5,y:.5},
   targetCam:new THREE.Vector3(0,1.4,5.8),
   lookAt:new THREE.Vector3(0,1.2,0)
 };
@@ -116,66 +122,58 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
 
 /* ===== Diagnostics ===== */
-function showDiag(msg, offerOpen=false){
+function showDiag(msg, offerOpen){
   diag.style.display='block';
   diag.innerHTML = msg + (offerOpen? `<div class="row"><button id="openTop">Открыть в новой вкладке</button></div>` : '');
   if(offerOpen){
-    document.getElementById('openTop').onclick=()=>{ try{ window.open(location.href,'_blank'); }catch(e){} };
+    const btn=document.getElementById('openTop');
+    if(btn) btn.onclick=()=>{ try{ window.open(location.href,'_blank'); }catch(e){} };
   }
 }
 function preflight(){
   const insideIframe = window.top !== window.self;
-  const secure = window.isSecureContext || location.hostname==='localhost';
+  const secure = window.isSecureContext || location.hostname === 'localhost';
   let issues=[];
-  if(insideIframe) issues.push('Страница запущена ВНУТРИ iframe → камера может блокироваться.');
+  if(insideIframe) issues.push('Сайт открыт ВНУТРИ iframe → Safari часто рубит камеру. Открой в новой вкладке.');
   if(!secure) issues.push(`Нужен HTTPS или localhost. Сейчас: ${location.protocol}//${location.host}`);
   if(issues.length) showDiag('Диагностика:\n• '+issues.join('\n• '), insideIframe);
-  miniTip.textContent = secure? '' : 'Открой через https или http://localhost — иначе камера может не спросить.';
+  if(location.protocol==='file:') miniTip.textContent='Открой через https / http://localhost — в file:// камера заблокирована.';
 }
 preflight();
 
-/* ===== Splash start (без камеры, гарантированный) ===== */
-startBtn.addEventListener('click', ()=>{
+/* ===== Splash click — ВСЁ стартует сразу, без ожиданий и модулей ===== */
+startBtn.addEventListener('click', function(){
   splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 600);
-  ui.hidden=false;
-  start3D(); // стартуем СРАЗУ — 3D видно мгновенно
-});
+  ui.hidden = false;
 
-/* ===== Optional: gyro fallback ===== */
-if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
-  // iOS требует явного запроса после пользовательского жеста; дадим подсказку
-  miniTip.textContent = 'На iOS дай доступ к гироскопу после НАЧАТЬ (вопрос всплывёт).';
-}
-window.addEventListener('deviceorientation', e=>{
-  const nx = clamp((e.gamma||0)/60 + .5, 0, 1);
-  const ny = clamp((e.beta||0)/90 + .5, 0, 1);
-  S.gyro.enabled = true; S.gyro.x = nx; S.gyro.y = ny;
-});
-window.addEventListener('pointermove', e=>{
-  const r = app.getBoundingClientRect();
-  S.mouse.x = clamp((e.clientX - r.left)/r.width, 0, 1);
-  S.mouse.y = clamp((e.clientY - r.top)/r.height, 0, 1);
-  S.mouse.active = true;
-});
+  // 1) 3D сразу
+  start3D();
 
-/* ===== Try camera (beta) — по желанию ===== */
-tryCamBtn.addEventListener('click', async ()=>{
-  tryCamBtn.disabled = true; tryCamBtn.textContent = 'Загружаю трекинг…';
-  const ok = await startCamera();
-  if(!ok){ tryCamBtn.disabled=false; tryCamBtn.textContent='Попробовать трекинг (beta)'; return; }
-  await initFaceTracker(); // Mediapipe грузим только по кнопке
-  status('Трекинг активен');
-  tryCamBtn.textContent = 'Камера: вкл';
+  // 2) Мгновенно просим камеру через MediaPipe CameraUtils (жёсткий жест пользователя — этот клик)
+  startFaceMeshTracking(); // внутри сам запросит gUM
+
+  // Fallback управление мышью
+  window.addEventListener('pointermove', (e)=>{
+    const r = app.getBoundingClientRect();
+    S.mouse.x = clamp((e.clientX - r.left)/r.width, 0, 1);
+    S.mouse.y = clamp((e.clientY - r.top)/r.height, 0, 1);
+    S.mouse.active = true;
+  });
 });
 
 /* ===== UI ===== */
-modeSel.addEventListener('change', ()=>{ S.hcp=(modeSel.value==='hcp'); status('Режим: '+(S.hcp?'HCP':'Анаглиф')); });
-depthRange.addEventListener('input', ()=>{ S.depth=depthRange.value/100; effect && effect.setEyeSeparation(clamp(0.06*S.depth,0,0.12)); });
+toggleTrackBtn.addEventListener('click', ()=>{
+  trackingEnabled = !trackingEnabled;
+  toggleTrackBtn.textContent = 'Трекинг: ' + (trackingEnabled ? 'вкл' : 'выкл');
+  if(!trackingEnabled){ S.face.ok=false; video.style.display='none'; }
+});
+modeSel.addEventListener('change', ()=>{ S.hcp = (modeSel.value==='hcp'); status('Режим: '+(S.hcp?'HCP':'Анаглиф')); });
+depthRange.addEventListener('input', ()=>{ S.depth = depthRange.value/100; if(effect && effect.setEyeSeparation) effect.setEyeSeparation(clamp(0.06*S.depth,0,0.12)); });
 showDbg.addEventListener('change', ()=>{ const v=showDbg.checked; video.style.display=v?'block':'none'; dbg.style.display=v?'block':'none'; });
 
 /* ===== 3D ===== */
 function start3D(){
-  renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+  renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias:true });
   renderer.setPixelRatio(S.dpr);
 
   scene = new THREE.Scene();
@@ -185,7 +183,8 @@ function start3D(){
   camera = new THREE.PerspectiveCamera(55,1,0.1,200);
   camera.position.copy(S.targetCam); camera.lookAt(S.lookAt);
 
-  effect = new AnaglyphEffect(renderer); effect.setEyeSeparation(0.06);
+  effect = new THREE.AnaglyphEffect(renderer);
+  effect.setEyeSeparation(0.06);
 
   // lights
   const hemi = new THREE.HemisphereLight(0xbdd7ff,0x0a0f14,.9); scene.add(hemi);
@@ -220,19 +219,21 @@ function start3D(){
     updateParallax();
     if(S.hcp) renderer.render(scene,camera); else effect.render(scene,camera);
   });
-  status('3D готово — двинь мышкой/телом');
+  status('3D готово');
 }
 function onResize(){ S.w=app.clientWidth; S.h=app.clientHeight; camera.aspect=S.w/S.h; camera.updateProjectionMatrix(); renderer.setSize(S.w,S.h,false); effect.setSize(S.w,S.h); }
 
 let _sx=0,_sy=0,_sz=0;
 function updateParallax(){
-  // источник: трекинг лица → гироскоп → мышь
+  // источник: трекинг лица → мышь
   let nx=.5, ny=.5, dist=1;
-  if(S.face.ok){ nx=clamp(S.face.cx,0,1); ny=clamp(S.face.cy,0,1);
-    const d=clamp(S.face.eye,0.08,0.35); dist=THREE.MathUtils.mapLinear(d,0.08,0.35,1.8,0.6);
-  } else if(S.gyro.enabled){ nx=S.gyro.x; ny=S.gyro.y;
-  } else if(S.mouse.active){ nx=S.mouse.x; ny=S.mouse.y; }
-
+  if(S.face.ok){
+    nx=clamp(S.face.cx,0,1); ny=clamp(S.face.cy,0,1);
+    const d=clamp(S.face.eye,0.08,0.35);
+    dist=THREE.MathUtils.mapLinear(d,0.08,0.35,1.8,0.6);
+  } else if(S.mouse.active){
+    nx=S.mouse.x; ny=S.mouse.y;
+  }
   const maxX=0.9*S.depth*dist, maxY=0.6*S.depth*dist, maxZ=0.9*S.depth*dist;
   const tx=THREE.MathUtils.mapLinear(nx,0,1,-maxX,maxX);
   const ty=THREE.MathUtils.mapLinear(ny,0,1, maxY,-maxY);
@@ -243,75 +244,89 @@ function updateParallax(){
   camera.lookAt(S.lookAt.x+_sx*0.2,S.lookAt.y+_sy*0.2,S.lookAt.z);
 }
 
-/* ===== Camera & Face tracker (опционально) ===== */
-async function startCamera(){
+/* ===== FaceMesh tracking (жёсткий запрос камеры из клика) ===== */
+function startFaceMeshTracking(){
   try{
-    if(!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia неподдерживается в этом окружении');
-    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} }, audio:false });
-    video.srcObject = stream; await video.play().catch(()=>{});
-    if(showDbg.checked) video.style.display='block';
-    status('Камера: ок');
-    return true;
+    // Настроим FaceMesh: подгрузка моделей из CDN
+    faceMesh = new FaceMesh.FaceMesh({
+      locateFile: (file)=> `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    });
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    faceMesh.onResults(onFaceResults);
+
+    // Используем MediaPipe CameraUtils — он сам делает getUserMedia в рамках текущего клика
+    camUtil = new CameraUtils.Camera(video, {
+      onFrame: async () => {
+        if(trackingEnabled){
+          await faceMesh.send({ image: video });
+        }
+      },
+      width: 1280, height: 720
+    });
+
+    // В Safari это запускает СИСТЕМНЫЙ запрос к камере немедленно
+    camUtil.start()
+      .then(()=>{ status('Камера: ок'); if(showDbg.checked) video.style.display='block'; })
+      .catch((err)=>{
+        handleCamError(err);
+      });
+
   }catch(err){
-    const insideIframe = window.top !== window.self;
-    const secure = window.isSecureContext || location.hostname==='localhost';
-    showDiag(
-      'Камеру получить не удалось: '+(err.name||'')+'\n'+(err.message||'')+
-      (insideIframe? '\n• Вы внутри iframe — контейнер может резать камеру. Открой в новой вкладке.' : '')+
-      (!secure? `\n• Нужен HTTPS или localhost. Сейчас: ${location.protocol}//${location.host}`:'')+
-      '\n• Разреши камеру для домена (значок замочка).',
-      insideIframe
-    );
-    status('Камера недоступна — работаем без неё');
-    return false;
+    handleCamError(err);
   }
 }
 
-async function initFaceTracker(){
-  try{
-    const { FaceLandmarker, FilesetResolver } = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5");
-    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5/wasm");
-    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-      baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task" },
-      runningMode:"VIDEO", numFaces:1
-    });
+function onFaceResults(results){
+  if(!trackingEnabled){ S.face.ok=false; return; }
+  if(results && results.multiFaceLandmarks && results.multiFaceLandmarks.length){
+    const lm = results.multiFaceLandmarks[0];
+    const L = lm[33], R = lm[263]; // уголки глаз
+    if(L && R){
+      const cx = (L.x + R.x)/2;
+      const cy = (L.y + R.y)/2;
+      const d  = Math.hypot(L.x - R.x, L.y - R.y);
+      S.face.ok = true;
+      S.face.cx = 1 - cx; // зеркалим
+      S.face.cy = cy;
+      S.face.eye = d;
+      S.face.ts = performance.now();
 
-    // запускаем простой poll вместо сложного таймера
-    const tick = ()=>{
-      if(!faceLandmarker || !stream || video.readyState<2) return;
-      const now = performance.now();
-      const res = faceLandmarker.detectForVideo(video, now);
-      if(res && res.faceLandmarks?.length){
-        const lm = res.faceLandmarks[0], L = lm[33], R = lm[263];
-        const cx = (L.x+R.x)/2, cy=(L.y+R.y)/2, d=Math.hypot(L.x-R.x, L.y-R.y);
-        S.face.ok = true; S.face.cx = 1-cx; S.face.cy = cy; S.face.eye = d; S.face.ts = now;
-
-        if(showDbg.checked){
-          dbgCtx.drawImage(video,0,0,dbg.width,dbg.height);
-          dbgCtx.fillStyle="#00ff90";
-          dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-L.x), dbg.height*L.y, 3, 0, Math.PI*2); dbgCtx.fill();
-          dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-R.x), dbg.height*R.y, 3, 0, Math.PI*2); dbgCtx.fill();
-        }
-      } else {
-        S.face.ok = (performance.now() - S.face.ts) < 500;
+      if(showDbg.checked){
+        dbgCtx.drawImage(video, 0, 0, dbg.width, dbg.height);
+        dbgCtx.fillStyle="#00ff90";
+        dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-L.x), dbg.height*L.y, 3, 0, Math.PI*2); dbgCtx.fill();
+        dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-R.x), dbg.height*R.y, 3, 0, Math.PI*2); dbgCtx.fill();
       }
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }catch(e){
-    showDiag('Не удалось инициализировать трекинг лица (окей, без него тоже работает): '+(e.message||e));
+      return;
+    }
   }
+  S.face.ok = (performance.now() - S.face.ts) < 500;
+}
+
+function handleCamError(err){
+  const insideIframe = window.top !== window.self;
+  const secure = window.isSecureContext || location.hostname==='localhost';
+  let msg = 'Камеру получить не удалось.\n' + (err && (err.name||err.message) ? (err.name + ': ' + err.message) : '');
+  msg += '\n• Safari: меню Safari → Settings for This Website… → Camera: Allow';
+  msg += '\n• Или Safari → Settings → Websites → Camera → для твоего домена поставить Allow/Ask';
+  if(insideIframe) msg += '\n• Ты внутри iframe — открой в новой вкладке (GitHub Preview → Open in new tab).';
+  if(!secure) msg += `\n• Нужен HTTPS или localhost. Сейчас: ${location.protocol}//${location.host}`;
+  showDiag(msg, insideIframe);
+  status('Камера недоступна — параллакс по мыши работает');
 }
 
 /* ===== Status helper ===== */
-let _t; function status(m){ clearTimeout(_t); statusEl.textContent=m; _t=setTimeout(()=>statusEl.textContent='Готово',4000); }
+let _t; function status(m){ clearTimeout(_t); statusEl.textContent=m; _t=setTimeout(()=>statusEl.textContent='Готово', 4000); }
 
-/* file:// предупреждение */
-if(location.protocol==='file:'){ miniTip.textContent='Открой через https или http://localhost — в file:// камера блокируется.'; }
-
-/* ловим неожиданные ошибки, чтобы не «ничего не происходило» */
+/* ===== Safety: ловим ошибки, чтобы не было «тишины» ===== */
 window.addEventListener('error', e=> showDiag('JS ошибка: '+(e.message||'')+'\nСмотри консоль.'));
-window.addEventListener('unhandledrejection', e=> showDiag('Promise отклонён: '+(e.reason?.message||e.reason||'')));
+window.addEventListener('unhandledrejection', e=> showDiag('Promise отклонён: '+(e.reason && (e.reason.message||e.reason))));
+
 </script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<title>АНДРЕЙ — Ручное управление (Диагностическая версия)</title>
+<title>АНДРЕЙ — Ручное управление (НЕУБИВАЕМЫЙ СТАРТ)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="color-scheme" content="dark" />
 <style>
@@ -83,8 +83,8 @@
     <div class="logo">
       <div class="made">СОЗДАНО</div>
       <div class="name">АНДРЕЕМ</div>
-      <div class="sub">диагностическая версия — старт обязателен</div>
-      <button id="startBtn" class="start" onclick="window.__start && window.__start()">НАЧАТЬ</button>
+      <div class="sub">неубиваемый старт — меню откроется даже без клика</div>
+      <a id="startBtn" class="start" href="#go">НАЧАТЬ</a>
       <div id="bootMark" style="margin-top:6px;font-size:12px;opacity:.7">JS не запущен</div>
     </div>
   </div>
@@ -141,9 +141,9 @@ let W=0,H=0, DPR=Math.min(window.devicePixelRatio||1, 2);
 let mode='menu';
 let lastT=performance.now();
 let renderFPS=0, trackFPS=0; let rfCount=0, trCount=0, lastRF=performance.now(), lastTR=performance.now();
-let processing=false;
 const pointer = { x:.5, y:.5, rawX:.5, rawY:.5, pinch:false, pinchDown:false, pinchUp:false };
 let currentGame=null;
+let started=false;
 
 const GAMES=[
   {id:'breaker', name:'Brick Breaker', desc:'Платформа по X, пинч = запуск/ультра'},
@@ -156,24 +156,27 @@ const GAMES=[
 // ===== Utils =====
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
-function status(m){ statusEl.textContent=m; log('<b>STATUS:</b> '+m); clearTimeout(status._t); status._t=setTimeout(()=>statusEl.textContent='Готово',3000); }
+function status(m){ statusEl.textContent=m; log('<b>STATUS:</b> '+m); }
 function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; log('<b>ERROR:</b> '+msg); }
-function log(m){ logEl.textContent += (m+'\n'); logEl.scrollTop = logEl.scrollHeight; }
+function log(m){ logEl.textContent += (m+'
+'); logEl.scrollTop = logEl.scrollHeight; }
 
 function resize(){ W=app.clientWidth; H=app.clientHeight; canvas.width=W*DPR; canvas.height=H*DPR; canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(DPR,0,0,DPR,0,0); log('<b>resize</b>: '+W+'x'+H); }
 window.addEventListener('resize', resize);
 
-// ===== Safe START =====
-window.__start = start; // для onclick
-startBtn.addEventListener('click', start);
-function start(){
-  log('<b>click:</b> НАЧАТЬ');
-  try{
-    splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 550);
-    ui.hidden=false; menu.hidden=false; buildMenu(); resize();
-    status('Меню готово');
-  }catch(e){ showDiag('Старт не удался: '+(e.message||e)); }
+// ===== Unstoppable START =====
+function start(){ if(started) return; started=true; log('<b>START</b>');
+  splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 550);
+  ui.hidden=false; menu.hidden=false; buildMenu(); resize(); status('Меню готово');
 }
+// 1) автостарт через 300мс после загрузки
+window.addEventListener('load', ()=> setTimeout(start, 300));
+// 2) клик по кнопке (ссылка меняет hash)
+startBtn.addEventListener('click', (e)=>{ log('<b>click:</b> НАЧАТЬ'); /* hashchange поймает */ });
+// 3) изменение hash
+window.addEventListener('hashchange', ()=>{ if(location.hash==="#go") start(); }); if(location.hash==="#go") start();
+// 4) любой первый клик/тач/клавиша на странице
+['pointerdown','keydown'].forEach(ev=> document.addEventListener(ev, ()=>start(), {once:true,capture:true}));
 
 btnBack.addEventListener('click', ()=>{ setMode('menu'); log('<b>click:</b> Меню'); });
 btnStart.addEventListener('click', startCamera);
@@ -186,11 +189,10 @@ function setMode(m){ mode=m; if(mode==='menu'){ currentGame=null; menu.hidden=fa
 app.addEventListener('pointermove', (e)=>{ const r=app.getBoundingClientRect(); pointer.rawX=(e.clientX-r.left)/r.width; pointer.rawY=(e.clientY-r.top)/r.height; });
 app.addEventListener('pointerdown', ()=>{ pointer.pinch=true; pointer.pinchDown=true; addRipple(pointer.x*W, pointer.y*H); setTimeout(()=>{ pointer.pinch=false; pointer.pinchUp=true; },120); });
 
-// ===== Dynamic loader (by click) =====
+// ===== Camera libs lazy-load (по кнопке) =====
 function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=()=>{ log('loaded: '+src); res(); }; s.onerror=()=>{ log('FAIL load: '+src); rej(new Error('Не загрузился '+src)); }; document.head.appendChild(s); }); }
 async function loadHandsLibs(){ if(window.Hands) return; log('loading libs…'); await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js'); await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js'); }
 
-// ===== Camera + Hands =====
 async function startCamera(){
   log('<b>click:</b> Запустить камеру');
   try{
@@ -204,8 +206,7 @@ async function startCamera(){
     hands.setOptions({ maxNumHands:1, selfieMode:true, modelComplexity: quality==='quality'?1:0, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
     hands.onResults(onHands);
 
-    let camW = (quality==='quality')? 960 : (quality==='balanced'? 720 : 640);
-    let camH = 540;
+    let camW = (quality==='quality')? 960 : (quality==='balanced'? 720 : 640), camH=540;
 
     if(CameraCtor){
       const cam = new CameraCtor(video, { width:camW, height:camH, onFrame: async()=>{ await hands.send({image:video}); trCount++; const now=performance.now(); if(now-lastTR>500){ trackFPS=(trCount*1000)/(now-lastTR); trCount=0; lastTR=now; } } });
@@ -216,124 +217,22 @@ async function startCamera(){
       const tick=async()=>{ await hands.send({image:video}); trCount++; const now=performance.now(); if(now-lastTR>500){ trackFPS=(trCount*1000)/(now-lastTR); trCount=0; lastTR=now; } requestAnimationFrame(tick); }; requestAnimationFrame(tick);
     }
     status('Камера: ок'); if(showDbg.checked) video.style.display='block';
-  }catch(err){
-    showDiag('Камеру получить не удалось: '+(err.message||err));
-    // дополнительная проверка getUserMedia, чтобы точно увидеть запрос
-    try{
-      log('trying plain getUserMedia…');
-      const stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
-      video.srcObject=stream; await video.play(); status('Webcam ✓ (plain)');
-    }catch(e){ showDiag('getUserMedia тоже не дал: '+(e.name||'')+' '+(e.message||'')); }
-  }
+  }catch(err){ showDiag('Камеру получить не удалось: '+(err.message||err)); try{ log('trying plain getUserMedia…'); const stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false }); video.srcObject=stream; await video.play(); status('Webcam ✓ (plain)'); }catch(e){ showDiag('getUserMedia тоже не дал: '+(e.name||'')+' '+(e.message||'')); } }
 }
 
-function onHands(res){
-  if(!res.multiHandLandmarks || !res.multiHandLandmarks.length){ pointer.pinch=false; return; }
-  const lm = res.multiHandLandmarks[0];
-  const idx = lm[8];
-  const th  = lm[4];
-  const wrist = lm[0];
-  const idxMCP = lm[5];
-  const rawX = mirrorX.checked ? (1 - idx.x) : idx.x;
-  const rawY = idx.y;
-  const k = (smoothRange.value|0)/100; // EMA
-  pointer.rawX = rawX*(1-k) + pointer.rawX*k;
-  pointer.rawY = rawY*(1-k) + pointer.rawY*k;
-  const palm = Math.hypot(idxMCP.x - wrist.x, idxMCP.y - wrist.y) + 1e-6;
-  const d = Math.hypot(idx.x - th.x, idx.y - th.y) / palm;
-  const base = (pinchRange.value|0)/1000; const onT=base, offT=base*1.6;
-  const prev = pointer.pinch;
-  if(!prev && d < onT) pointer.pinch = true;
-  if(prev && d > offT) pointer.pinch = false;
-  pointer.pinchDown = (!prev && pointer.pinch);
-  pointer.pinchUp   = (prev && !pointer.pinch);
-}
+function onHands(res){ if(!res.multiHandLandmarks || !res.multiHandLandmarks.length){ pointer.pinch=false; return; } const lm = res.multiHandLandmarks[0]; const idx = lm[8]; const th=lm[4]; const wrist=lm[0]; const idxMCP=lm[5]; const rawX = mirrorX.checked ? (1 - idx.x) : idx.x; const rawY = idx.y; const k = (smoothRange.value|0)/100; pointer.rawX = rawX*(1-k) + pointer.rawX*k; pointer.rawY = rawY*(1-k) + pointer.rawY*k; const palm = Math.hypot(idxMCP.x - wrist.x, idxMCP.y - wrist.y) + 1e-6; const d = Math.hypot(idx.x - th.x, idx.y - th.y) / palm; const base=(pinchRange.value|0)/1000; const onT=base, offT=base*1.6; const prev=pointer.pinch; if(!prev && d<onT) pointer.pinch=true; if(prev && d>offT) pointer.pinch=false; pointer.pinchDown=!prev && pointer.pinch; pointer.pinchUp=prev && !pointer.pinch; }
 
-// ===== Games (same as before, simplified drawing) =====
+// ===== Games =====
 const Games = {
-  breaker(){
-    let paddle={x:W/2,y:H-80,w:120,h:14}, ball={x:W/2,y:H-100,vx:0,vy:0,r:8, live:false}, bricks=[], rows=6, cols=10, score=0, lives=3;
-    function init(){ makeBricks(); centerBall(); score=0; lives=3; }
-    function makeBricks(){ bricks=[]; const bw= (W-80)/cols, bh=22; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) bricks.push({x:40+c*bw+bw*0.05,y:80+r*(bh+8),w:bw*0.9,h:bh,hp:1}); }
-    function centerBall(){ ball.x=W/2; ball.y=paddle.y-20; ball.vx=0; ball.vy=0; ball.live=false; }
-    function update(){
-      paddle.x = lerp(paddle.x, pointer.rawX*W, .35);
-      if(!ball.live){ ball.x = paddle.x; ball.y = paddle.y-20; if(pointer.pinchDown){ ball.live=true; ball.vx= (Math.random()>.5?1:-1)*5; ball.vy=-7; addRipple(ball.x,ball.y); } }
-      else{
-        ball.x+=ball.vx; ball.y+=ball.vy; if(ball.x<ball.r||ball.x>W-ball.r) ball.vx*=-1; if(ball.y<60) ball.vy*=-1;
-        if(ball.y>paddle.y-10 && ball.y<paddle.y+10 && Math.abs(ball.x-paddle.x)<paddle.w/2){ ball.vy=-Math.abs(ball.vy); const off=(ball.x-paddle.x)/(paddle.w/2); ball.vx = 7*off; }
-        for(const b of bricks){ if(b.hp>0 && ball.x>b.x && ball.x<b.x+b.w && ball.y>b.y && ball.y<b.y+b.h){ b.hp=0; ball.vy*=-1; score+=10; break; } }
-        bricks = bricks.filter(b=>b.hp>0);
-        if(ball.y>H+30){ lives--; centerBall(); if(lives<=0){ makeBricks(); lives=3; score=0; } }
-      }
-    }
-    function draw(){ ctx.fillStyle='#0f1726'; ctx.fillRect(0,60,W,2); for(const b of bricks){ ctx.fillStyle='#87baff'; ctx.fillRect(b.x,b.y,b.w,b.h); }
-      ctx.fillStyle='#7ef7d2'; ctx.fillRect(paddle.x-paddle.w/2, paddle.y-paddle.h/2, paddle.w, paddle.h);
-      ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2); ctx.fill();
-      drawHUD(`Очки: ${score} • Жизни: ${lives}`, 'Пинч = старт/ультра удар'); }
-    return {init,update,draw};
-  },
-  targets(){
-    let targets=[], t=0, score=0, combo=0, cd=0;
-    function init(){ targets=[]; t=0; score=0; combo=0; cd=0; }
-    function spawn(){ const y=80+Math.random()*(H-160); const dir=Math.random()<.5?-1:1; targets.push({x:dir<0?W+40:-40,y, r:18+Math.random()*12, vx:dir*(2+Math.random()*2), life:4000}); }
-    function update(dt){ t+=dt; if(t>600){ t=0; spawn(); } targets.forEach(a=>{ a.x+=a.vx; a.life-=dt; }); targets = targets.filter(a=>a.life>0 && a.x>-80 && a.x<W+80);
-      cd=Math.max(0,cd-dt);
-      if(pointer.pinchDown && cd===0){ cd=180; const x=pointer.rawX*W, y=pointer.rawY*H; let hit=false; for(const a of targets){ if(!a.dead && Math.hypot(x-a.x,y-a.y)<a.r+8){ a.dead=true; a.life=0; hit=true; break; } } if(hit){ combo++; score += 10*combo; addRipple(x,y); } else { combo=0; } }
-    }
-    function draw(){ for(const a of targets){ ctx.strokeStyle='#ffd479'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(a.x,a.y,a.r,0,Math.PI*2); ctx.stroke(); }
-      drawHUD(`Очки: ${score} • Комбо: x${combo}`, 'Наведи и пинч — выстрел (кд 180мс)'); }
-    return {init,update,draw};
-  },
-  moles(){
-    let holes=[], moles=[], t=0, score=0, miss=0;
-    function init(){ holes=[]; moles=[]; score=0; miss=0; const cols=3, rows=3; const gap=Math.min(200, Math.min(W,H)/3); const ox=W/2-(cols-1)*gap/2, oy=H/2-(rows-1)*gap/2; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) holes.push({x:ox+c*gap,y:oy+r*gap}); }
-    function update(dt){ t+=dt; if(t>700){ t=0; const h=holes[Math.floor(Math.random()*holes.length)]; moles.push({x:h.x,y:h.y,r:26,life:1100,hit:false}); }
-      moles.forEach(m=>m.life-=dt); moles = moles.filter(m=>{ if(m.life<=0 && !m.hit) miss++; return m.life>0; });
-      if(pointer.pinchDown){ const x=pointer.rawX*W, y=pointer.rawY*H; for(const m of moles){ if(!m.hit && Math.hypot(x-m.x,y-m.y)<m.r+12){ m.hit=true; m.life=0; score++; addRipple(x,y); break; } } }
-    }
-    function draw(){ ctx.strokeStyle='#102033'; ctx.lineWidth=2; holes.forEach(h=>{ ctx.beginPath(); ctx.arc(h.x,h.y,34,0,Math.PI*2); ctx.stroke(); });
-      moles.forEach(m=>{ ctx.fillStyle=m.hit?'#6ee7a8':'#ffd479'; ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2); ctx.fill(); });
-      drawHUD(`Попаданий: ${score} • Промахов: ${miss}`, 'Появляется круг — ударь пинчем'); }
-    return {init,update,draw};
-  },
-  bubbles(){
-    let bubbles=[], t=0, popped=0; function init(){ bubbles=[]; t=0; popped=0; }
-    function update(dt){ t+=dt; if(t>380){ t=0; bubbles.push({x:Math.random()*W,y:H+20,r:12+Math.random()*18,v:1+Math.random()*1.5}); }
-      for(const b of bubbles){ b.y-=b.v; }
-      bubbles=bubbles.filter(b=>b.y>-30);
-      if(pointer.pinch){ const x=pointer.rawX*W, y=pointer.rawY*H; for(const b of bubbles){ if(!b.dead && Math.hypot(x-b.x,y-b.y)<b.r+12){ b.dead=true; popped++; addRipple(x,y); } } bubbles=bubbles.filter(b=>!b.dead); }
-    }
-    function draw(){ for(const b of bubbles){ ctx.strokeStyle='#87baff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke(); }
-      drawHUD(`Лопнул: ${popped}`, 'Держи пинч и веди по пузырям'); }
-    return {init,update,draw};
-  },
-  slice(){
-    let fruits=[], t=0, score=0, trail=[]; function init(){ fruits=[]; t=0; score=0; trail=[]; }
-    function update(dt){ t+=dt; if(t>520){ t=0; const x=40+Math.random()*(W-80); const vY= - (5+Math.random()*4); const vX=(Math.random()-.5)*3; fruits.push({x:x,y:H+20,r:18+Math.random()*12,vx:vX,vy:vY,life:6000}); }
-      if(pointer.pinch){ trail.push({x:pointer.rawX*W, y:pointer.rawY*H}); if(trail.length>16) trail.shift(); } else trail.length=0;
-      for(const f of fruits){ f.x+=f.vx; f.y+=f.vy; f.vy+=0.12; f.life-=dt; }
-      if(trail.length>1){ for(const f of fruits){ if(!f.dead){ for(let i=1;i<trail.length;i++){ if(distToSegment(f.x,f.y, trail[i-1].x,trail[i-1].y, trail[i].x,trail[i].y) < f.r+4){ f.dead=true; score+=5; break; } } } }
-      fruits = fruits.filter(f=>!f.dead && f.life>0 && f.y<H+120);
-    }
-    function draw(){ for(const f of fruits){ ctx.fillStyle='#ffd479'; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill(); }
-      if(trail.length>1){ ctx.strokeStyle='#86c9ff'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(trail[0].x,trail[0].y); for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x,trail[i].y); ctx.stroke(); }
-      drawHUD(`Очки: ${score}`, 'Держи пинч и «режь» траекторией'); }
-    function distToSegment(px,py, x1,y1,x2,y2){ const A=px-x1, B=py-y1, C=x2-x1, D=y2-y1; const dot=A*C+B*D; const len=C*C+D*D; let t=0; if(len>0) t=dot/len; t=Math.max(0,Math.min(1,t)); const xx=x1+t*C, yy=y1+t*D; return Math.hypot(px-xx,py-yy); }
-    return {init,update,draw};
-  }
+  breaker(){ let paddle={x:W/2,y:H-80,w:120,h:14}, ball={x:W/2,y:H-100,vx:0,vy:0,r:8, live:false}, bricks=[], rows=6, cols=10, score=0, lives=3; function init(){ makeBricks(); centerBall(); score=0; lives=3; } function makeBricks(){ bricks=[]; const bw=(W-80)/cols, bh=22; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) bricks.push({x:40+c*bw+bw*0.05,y:80+r*(bh+8),w:bw*0.9,h:bh,hp:1}); } function centerBall(){ ball.x=W/2; ball.y=paddle.y-20; ball.vx=0; ball.vy=0; ball.live=false; } function update(){ paddle.x = lerp(paddle.x, pointer.rawX*W, .35); if(!ball.live){ ball.x=paddle.x; ball.y=paddle.y-20; if(pointer.pinchDown){ ball.live=true; ball.vx=(Math.random()>.5?1:-1)*5; ball.vy=-7; addRipple(ball.x,ball.y); } } else { ball.x+=ball.vx; ball.y+=ball.vy; if(ball.x<ball.r||ball.x>W-ball.r) ball.vx*=-1; if(ball.y<60) ball.vy*=-1; if(ball.y>paddle.y-10 && ball.y<paddle.y+10 && Math.abs(ball.x-paddle.x)<paddle.w/2){ ball.vy=-Math.abs(ball.vy); const off=(ball.x-paddle.x)/(paddle.w/2); ball.vx = 7*off; } for(const b of bricks){ if(b.hp>0 && ball.x>b.x && ball.x<b.x+b.w && ball.y>b.y && ball.y<b.y+b.h){ b.hp=0; ball.vy*=-1; score+=10; break; } } bricks = bricks.filter(b=>b.hp>0); if(ball.y>H+30){ lives--; centerBall(); if(lives<=0){ makeBricks(); lives=3; score=0; } } } } function draw(){ ctx.fillStyle='#0f1726'; ctx.fillRect(0,60,W,2); for(const b of bricks){ ctx.fillStyle='#87baff'; ctx.fillRect(b.x,b.y,b.w,b.h); } ctx.fillStyle='#7ef7d2'; ctx.fillRect(paddle.x-paddle.w/2, paddle.y-paddle.h/2, paddle.w, paddle.h); ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2); ctx.fill(); drawHUD(`Очки: ${score} • Жизни: ${lives}`, 'Пинч = старт/ультра удар'); } return {init,update,draw}; },
+  targets(){ let targets=[], t=0, score=0, combo=0, cd=0; function init(){ targets=[]; t=0; score=0; combo=0; cd=0; } function spawn(){ const y=80+Math.random()*(H-160); const dir=Math.random()<.5?-1:1; targets.push({x:dir<0?W+40:-40,y, r:18+Math.random()*12, vx:dir*(2+Math.random()*2), life:4000}); } function update(dt){ t+=dt; if(t>600){ t=0; spawn(); } targets.forEach(a=>{ a.x+=a.vx; a.life-=dt; }); targets = targets.filter(a=>a.life>0 && a.x>-80 && a.x<W+80); cd=Math.max(0,cd-dt); if(pointer.pinchDown && cd===0){ cd=180; const x=pointer.rawX*W, y=pointer.rawY*H; let hit=false; for(const a of targets){ if(!a.dead && Math.hypot(x-a.x,y-a.y)<a.r+8){ a.dead=true; a.life=0; hit=true; break; } } if(hit){ combo++; score += 10*combo; addRipple(x,y); } else { combo=0; } } } function draw(){ for(const a of targets){ ctx.strokeStyle='#ffd479'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(a.x,a.y,a.r,0,Math.PI*2); ctx.stroke(); } drawHUD(`Очки: ${score} • Комбо: x${combo}`, 'Наведи и пинч — выстрел'); } return {init,update,draw}; },
+  moles(){ let holes=[], moles=[], t=0, score=0, miss=0; function init(){ holes=[]; moles=[]; score=0; miss=0; const cols=3, rows=3; const gap=Math.min(200, Math.min(W,H)/3); const ox=W/2-(cols-1)*gap/2, oy=H/2-(rows-1)*gap/2; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) holes.push({x:ox+c*gap,y:oy+r*gap}); } function update(dt){ t+=dt; if(t>700){ t=0; const h=holes[Math.floor(Math.random()*holes.length)]; moles.push({x:h.x,y:h.y,r:26,life:1100,hit:false}); } moles.forEach(m=>m.life-=dt); moles = moles.filter(m=>{ if(m.life<=0 && !m.hit) miss++; return m.life>0; }); if(pointer.pinchDown){ const x=pointer.rawX*W, y=pointer.rawY*H; for(const m of moles){ if(!m.hit && Math.hypot(x-m.x,y-m.y)<m.r+12){ m.hit=true; m.life=0; score++; addRipple(x,y); break; } } } } function draw(){ ctx.strokeStyle='#102033'; ctx.lineWidth=2; holes.forEach(h=>{ ctx.beginPath(); ctx.arc(h.x,h.y,34,0,Math.PI*2); ctx.stroke(); }); moles.forEach(m=>{ ctx.fillStyle=m.hit?'#6ee7a8':'#ffd479'; ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2); ctx.fill(); }); drawHUD(`Попаданий: ${score} • Промахов: ${miss}`, 'Появляется круг — пинч'); } return {init,update,draw}; },
+  bubbles(){ let bubbles=[], t=0, popped=0; function init(){ bubbles=[]; t=0; popped=0; } function update(dt){ t+=dt; if(t>380){ t=0; bubbles.push({x:Math.random()*W,y:H+20,r:12+Math.random()*18,v:1+Math.random()*1.5}); } for(const b of bubbles){ b.y-=b.v; } bubbles=bubbles.filter(b=>b.y>-30); if(pointer.pinch){ const x=pointer.rawX*W, y=pointer.rawY*H; for(const b of bubbles){ if(!b.dead && Math.hypot(x-b.x,y-b.y)<b.r+12){ b.dead=true; popped++; addRipple(x,y); } } bubbles=bubbles.filter(b=>!b.dead); } } function draw(){ for(const b of bubbles){ ctx.strokeStyle='#87baff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke(); } drawHUD(`Лопнул: ${popped}`, 'Держи пинч и веди'); } return {init,update,draw}; },
+  slice(){ let fruits=[], t=0, score=0, trail=[]; function init(){ fruits=[]; t=0; score=0; trail=[]; } function update(dt){ t+=dt; if(t>520){ t=0; const x=40+Math.random()*(W-80); const vY= - (5+Math.random()*4); const vX=(Math.random()-.5)*3; fruits.push({x:x,y:H+20,r:18+Math.random()*12,vx:vX,vy:vY,life:6000}); } if(pointer.pinch){ trail.push({x:pointer.rawX*W, y:pointer.rawY*H}); if(trail.length>16) trail.shift(); } else trail.length=0; for(const f of fruits){ f.x+=f.vx; f.y+=f.vy; f.vy+=0.12; f.life-=dt; } if(trail.length>1){ for(const f of fruits){ if(!f.dead){ for(let i=1;i<trail.length;i++){ if(distToSegment(f.x,f.y, trail[i-1].x,trail[i-1].y, trail[i].x,trail[i].y) < f.r+4){ f.dead=true; score+=5; break; } } } } fruits = fruits.filter(f=>!f.dead && f.life>0 && f.y<H+120); } function draw(){ for(const f of fruits){ ctx.fillStyle='#ffd479'; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill(); } if(trail.length>1){ ctx.strokeStyle='#86c9ff'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(trail[0].x,trail[0].y); for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x,trail[i].y); ctx.stroke(); } drawHUD(`Очки: ${score}`, 'Держи пинч и «режь»'); } function distToSegment(px,py, x1,y1,x2,y2){ const A=px-x1, B=py-y1, C=x2-x1, D=y2-y1; const dot=A*C+B*D; const len=C*C+D*D; let t=0; if(len>0) t=dot/len; t=Math.max(0,Math.min(1,t)); const xx=x1+t*C, yy=y1+t*D; return Math.hypot(px-xx,py-yy); } return {init,update,draw}; }
 };
 
 // ===== Main loop =====
-function loop(){ requestAnimationFrame(loop); const now=performance.now(); const dt=now-lastT; lastT=now; rfCount++; if(now-lastRF>500){ renderFPS=(rfCount*1000)/(now-lastRF); rfCount=0; lastRF=now; }
-  ctx.clearRect(0,0,W,H); drawGrid();
-  if(mode==='menu'){ drawMenuHover(); } else if(currentGame){ currentGame.update(dt); currentGame.draw(); }
-  pointer.x = lerp(pointer.x, pointer.rawX, 0.6); pointer.y = lerp(pointer.y, pointer.rawY, 0.6);
-  const cx = pointer.x*W, cy = pointer.y*H; cursor.style.left=cx+'px'; cursor.style.top=cy+'px'; cursor.classList.toggle('pinching', pointer.pinch);
-  if(mode==='menu' && pointer.pinchDown){ const hovered = getHoveredCard(cx,cy); if(hovered){ setMode(hovered.dataset.id); pointer.pinchDown=false; addRipple(cx,cy); log('<b>select game:</b> '+hovered.dataset.id); } }
-  fpsEl.textContent = `render: ${renderFPS.toFixed(0)} fps • track: ${trackFPS.toFixed(0)} fps`;
-  pointer.pinchDown=false; pointer.pinchUp=false;
-}
+let lastT2=performance.now(); function loop(){ requestAnimationFrame(loop); const now=performance.now(); const dt=now-lastT2; lastT2=now; rfCount++; if(now-lastRF>500){ renderFPS=(rfCount*1000)/(now-lastRF); rfCount=0; lastRF=now; } ctx.clearRect(0,0,W,H); drawGrid(); if(mode==='menu'){ drawMenuHover(); } else if(currentGame){ currentGame.update(dt); currentGame.draw(); } pointer.x = lerp(pointer.x, pointer.rawX, 0.6); pointer.y = lerp(pointer.y, pointer.rawY, 0.6); const cx = pointer.x*W, cy = pointer.y*H; cursor.style.left=cx+'px'; cursor.style.top=cy+'px'; cursor.classList.toggle('pinching', pointer.pinch); if(mode==='menu' && pointer.pinchDown){ const hovered = getHoveredCard(cx,cy); if(hovered){ setMode(hovered.dataset.id); pointer.pinchDown=false; addRipple(cx,cy); log('<b>select game:</b> '+hovered.dataset.id); } } fpsEl.textContent = `render: ${renderFPS.toFixed(0)} fps • track: ${trackFPS.toFixed(0)} fps`; pointer.pinchDown=false; pointer.pinchUp=false; }
 function drawGrid(){ ctx.save(); ctx.strokeStyle='#102033'; ctx.lineWidth=1; const step=40; for(let y=0;y<H;y+=step){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); } for(let x=0;x<W;x+=step){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); } ctx.restore(); }
 function drawMenuHover(){ const cx=pointer.x*W, cy=pointer.y*H; for(const el of cardsEl.children){ el.classList.remove('sel'); if(hitCard(el,cx,cy)) el.classList.add('sel'); } }
 function hitCard(el, cx, cy){ const r = el.getBoundingClientRect(), base = app.getBoundingClientRect(); const x0=r.left-base.left, y0=r.top-base.top; return (cx>=x0 && cx<=x0+r.width && cy>=y0 && cy<=y0+r.height); }

@@ -1,91 +1,50 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <title>Создано Андреем — Живой 3D без очков</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <meta name="color-scheme" content="dark"/>
-  <style>
-    :root{
-      --bg:#070b11; --panel:#0f1520; --line:#ffffff1a; --txt:#e8eef7; --accent:#85c8ff;
-    }
-    *{ box-sizing:border-box }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif }
-    #app{ position:fixed; inset:0; overflow:hidden }
-    #gl{ position:absolute; inset:0; width:100%; height:100%; display:block }
+<meta charset="utf-8" />
+<title>АНДРЕЙ — Реальный 3D без очков</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="color-scheme" content="dark"/>
+<style>
+  :root{ --bg:#070b11; --panel:#0f1520; --line:#ffffff22; --txt:#e8eef7; --accent:#86c9ff; }
+  *{ box-sizing:border-box }
+  html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif }
+  #app{ position:fixed; inset:0; overflow:hidden }
+  #gl{ position:absolute; inset:0; width:100%; height:100%; display:block }
 
-    /* --- UI --- */
-    #ui{
-      position:absolute; left:12px; right:12px; top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;
-      background:color-mix(in srgb, var(--panel) 80%, transparent);
-      border:1px solid var(--line); border-radius:14px; padding:10px; backdrop-filter:blur(8px)
-    }
-    .btn, select, input[type=range], .ghost{
-      appearance:none; border:1px solid var(--line); background:#ffffff10; color:var(--txt);
-      padding:8px 12px; border-radius:12px; font-weight:600; cursor:pointer; outline:none
-    }
-    .btn:active{ transform:translateY(1px) }
-    .ghost{ background:transparent }
-    #status{ margin-left:auto; font-size:12px; opacity:.85 }
+  /* top UI */
+  #ui{ position:absolute; left:12px; right:12px; top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+       background:#0d1421cc; border:1px solid var(--line); border-radius:14px; padding:10px; backdrop-filter:blur(8px); z-index:5 }
+  .btn, select, input[type=range], .ghost{
+    appearance:none; border:1px solid var(--line); background:#ffffff12; color:var(--txt);
+    padding:8px 12px; border-radius:12px; font-weight:600; cursor:pointer
+  }
+  .ghost{ background:transparent }
+  #status{ margin-left:auto; font-size:12px; opacity:.85 }
+  #video,#dbg{ position:absolute; right:12px; bottom:12px; width:240px; height:auto; border-radius:12px; border:1px solid var(--line); display:none; z-index:4; background:#000 }
+  #dbg{ right:264px }
 
-    /* --- Splash --- */
-    #splash{ position:absolute; inset:0; display:grid; place-items:center; background:
-      radial-gradient(1000px 700px at 50% 30%, #ffffff0e, #00000088 60%, #000 100%), var(--bg);
-      z-index:50; overflow:hidden
-    }
-    .s-logo{ text-align:center; }
-    .s-made{ font-size:14px; letter-spacing:.2em; text-transform:uppercase; opacity:.7 }
-    .s-name{
-      font-size:44px; font-weight:900; letter-spacing:.02em;
-      background:linear-gradient(90deg, #78b6ff, #baf0ff, #78b6ff);
-      -webkit-background-clip:text; background-clip:text; color:transparent;
-      filter:drop-shadow(0 8px 32px #66aaff30);
-      animation: shine 3s ease-in-out infinite;
-    }
-    .s-sub{ margin-top:6px; opacity:.85 }
-    @keyframes shine {
-      0%,100%{ letter-spacing:.02em; filter:drop-shadow(0 8px 32px #66aaff30) }
-      50%{ letter-spacing:.06em; filter:drop-shadow(0 12px 42px #66aaff55) }
-    }
-    .s-start{
-      margin-top:18px; padding:12px 18px; font-size:16px; border-radius:14px;
-      border:1px solid #6dbaff80; background:#6dbaff20; cursor:pointer
-    }
-    .orbit{
-      position:absolute; width:120vmax; height:120vmax; border-radius:50%;
-      border:1px dashed #84c8ff25; animation:spin 30s linear infinite; pointer-events:none
-    }
-    .orbit:nth-child(1){ animation-duration:24s; }
-    .orbit:nth-child(2){ animation-duration:36s; transform:scale(.8) }
-    .orbit::after{
-      content:""; position:absolute; width:14px; height:14px; border-radius:50%; background:#84c8ff;
-      top:0; left:50%; transform:translate(-50%, -50%); box-shadow:0 0 30px 8px #84c8ff60
-    }
-    @keyframes spin { to{ transform:rotate(360deg) } }
-    .fade-out{ animation:fadeout .7s ease forwards }
-    @keyframes fadeout { to{ opacity:0; visibility:hidden } }
+  /* splash */
+  #splash{ position:absolute; inset:0; display:grid; place-items:center; z-index:10; background:
+           radial-gradient(900px 640px at 50% 30%, #ffffff12, #00000088 60%, #000), var(--bg) }
+  .logo{ text-align:center }
+  .made{ font-size:14px; letter-spacing:.22em; opacity:.72 }
+  .name{ font-size:44px; font-weight:900; letter-spacing:.02em;
+         background:linear-gradient(90deg,#78b6ff,#baf0ff,#78b6ff); -webkit-background-clip:text; background-clip:text; color:transparent;
+         filter:drop-shadow(0 8px 32px #66aaff30); animation:shine 3s ease-in-out infinite }
+  .sub{ margin-top:6px; opacity:.9 }
+  .start{ margin-top:18px; padding:12px 18px; font-size:16px; border-radius:14px; border:1px solid #6dbaff80; background:#6dbaff20; cursor:pointer }
+  @keyframes shine{ 0%,100%{letter-spacing:.02em} 50%{letter-spacing:.06em} }
+  .fade-out{ animation:fadeout .6s ease forwards } @keyframes fadeout{ to{opacity:0;visibility:hidden} }
 
-    /* --- Start overlay / errors --- */
-    #gate{
-      position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column;
-      background:linear-gradient(180deg, #0a111a 0%, #070b11 100%); z-index:40; gap:12px
-    }
-    #gate.box{ padding:22px; margin:0 12px; border:1px solid var(--line); border-radius:16px;
-      backdrop-filter: blur(8px); background:#0e1522c0; text-align:center; max-width:680px }
-    #hint{ font-size:13px; opacity:.8 }
+  /* diagnostics */
+  #diag{ position:fixed; left:12px; right:12px; top:12px; z-index:9999; padding:10px 12px; border-radius:12px;
+         background:#2a0b0b; color:#ffd9d9; border:1px solid #ff6b6b; font:600 13px/1.3 system-ui; white-space:pre-wrap; display:none }
+  #diag .row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px }
+  #openTop{ padding:6px 10px; border-radius:10px; border:1px solid #ffc2c2; background:#00000033; color:#ffd9d9; cursor:pointer }
 
-    #video, #dbg{
-      position:absolute; right:12px; bottom:12px; width:240px; height:auto; border-radius:12px;
-      border:1px solid var(--line); display:none; z-index:5; background:#000
-    }
-    #dbg{ right:264px }
-
-    /* small screens */
-    @media (max-width:720px){
-      .s-name{ font-size:30px }
-      #video, #dbg{ display:none !important }
-    }
-  </style>
+  @media (max-width:720px){ .name{font-size:30px} #video,#dbg{display:none!important} }
+</style>
 </head>
 <body>
 <div id="app">
@@ -95,14 +54,9 @@
   <div id="ui" hidden>
     <button id="toggleCam" class="btn">Камера: вкл</button>
     <label>Режим:
-      <select id="mode">
-        <option value="hcp">Без очков (HCP)</option>
-        <option value="anaglyph">Анаглиф</option>
-      </select>
+      <select id="mode"><option value="hcp">Без очков (HCP)</option><option value="anaglyph">Анаглиф</option></select>
     </label>
-    <label>Глубина:
-      <input id="depth" type="range" min="0" max="200" value="90"/>
-    </label>
+    <label>Глубина: <input id="depth" type="range" min="0" max="200" value="90"/></label>
     <label><input type="checkbox" id="showDbg"> Отладка</label>
     <button id="permTest" class="ghost">Проверить камеру</button>
     <div id="status">Готово</div>
@@ -110,175 +64,131 @@
 
   <!-- Splash -->
   <div id="splash">
-    <div class="orbit"></div><div class="orbit"></div>
-    <div class="s-logo">
-      <div class="s-made">СОЗДАНО</div>
-      <div class="s-name">АНДРЕЕМ</div>
-      <div class="s-sub">реалистичный 3D-эффект без очков</div>
-      <button id="startBtn" class="s-start">Начать</button>
+    <div class="logo">
+      <div class="made">СОЗДАНО</div>
+      <div class="name">АНДРЕЕМ</div>
+      <div class="sub">реалистичный 3D-эффект без очков</div>
+      <button id="startBtn" class="start">НАЧАТЬ</button>
+      <div id="miniTip" style="opacity:.7;margin-top:8px;font-size:12px"></div>
     </div>
-  </div>
-
-  <!-- Gate / messages / start -->
-  <div id="gate" hidden>
-    <div class="box" id="gateBox">
-      <h2 style="margin:.2em 0 0;">Запуск сцены</h2>
-      <p id="gateMsg" style="margin:.4em 0 .6em; opacity:.9">Нажми «Разрешить» для доступа к камере. Если не появится запрос — см. подсказки ниже.</p>
-      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
-        <button id="goBtn" class="btn">Запустить с камерой</button>
-        <button id="goNoCamBtn" class="ghost">Без камеры</button>
-      </div>
-      <p id="gateTips" style="font-size:13px; opacity:.8; margin-top:10px"></p>
-    </div>
-    <div id="hint">Совет: отсядь на 40–80 см; если камеры нет — двигай мышью/телефоном, параллакс всё равно работает.</div>
   </div>
 
   <video id="video" playsinline muted></video>
   <canvas id="dbg" width="240" height="160"></canvas>
+
+  <!-- Diagnostics -->
+  <div id="diag"></div>
 </div>
 
 <script type="module">
-/* === IMPORTS === */
+/* ===== Imports ===== */
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js";
 import { AnaglyphEffect } from "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/effects/AnaglyphEffect.js";
-import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5";
 
-/* === ELEMENTS === */
+/* ===== Elements ===== */
 const app = document.getElementById('app');
 const canvas = document.getElementById('gl');
 const ui = document.getElementById('ui');
-const statusEl = document.getElementById('status');
-
-const splash = document.getElementById('splash');
 const startBtn = document.getElementById('startBtn');
-
-const gate = document.getElementById('gate');
-const gateBox = document.getElementById('gateBox');
-const gateMsg = document.getElementById('gateMsg');
-const gateTips = document.getElementById('gateTips');
-const goBtn = document.getElementById('goBtn');
-const goNoCamBtn = document.getElementById('goNoCamBtn');
-
+const splash = document.getElementById('splash');
+const miniTip = document.getElementById('miniTip');
+const statusEl = document.getElementById('status');
 const toggleCamBtn = document.getElementById('toggleCam');
 const modeSel = document.getElementById('mode');
 const depthRange = document.getElementById('depth');
-const permTest = document.getElementById('permTest');
 const showDbg = document.getElementById('showDbg');
-
+const permTest = document.getElementById('permTest');
 const video = document.getElementById('video');
 const dbg = document.getElementById('dbg');
 const dbgCtx = dbg.getContext('2d');
+const diag = document.getElementById('diag');
 
-/* === STATE === */
-let renderer, scene, camera, effect;
-let stream = null, faceLandmarker = null;
-let running = false;
-
+/* ===== State ===== */
+let renderer, scene, camera, effect, stream=null, faceLandmarker=null;
 const S = {
-  w:0, h:0, dpr: Math.min(devicePixelRatio||1, 2),
-  hcp:true,
-  depth: .9, // 0..2
-  face: { ok:false, cx:.5, cy:.5, eye:.15, ts:0 },
-  mouse: { x:.5, y:.5, active:false },
-  gyro: { enabled:false, x:0, y:0 },
-  targetCam: new THREE.Vector3(0,1.4,5.6),
-  lookAt: new THREE.Vector3(0,1.2,0)
+  w:0,h:0,dpr:Math.min(devicePixelRatio||1,2),
+  hcp:true, depth:.9,
+  face:{ok:false,cx:.5,cy:.5,eye:.15,ts:0},
+  mouse:{x:.5,y:.5,active:false},
+  targetCam:new THREE.Vector3(0,1.4,5.6),
+  lookAt:new THREE.Vector3(0,1.2,0)
 };
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
 
-const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-const lerp = (a,b,t)=>a+(b-a)*t;
-
-/* === BOOT === */
-startBtn.addEventListener('click', ()=> {
-  splash.classList.add('fade-out');
-  setTimeout(()=> {
-    splash.hidden = true;
-    showGate();
-  }, 650);
-});
-document.addEventListener('keydown', (e)=>{
-  if(!splash.hidden && (e.key === 'Enter' || e.key === ' ')) startBtn.click();
-});
-
-/* Gate logic + hints */
-function showGate(){
-  gate.hidden = false;
-  gateMsg.textContent = 'Нажми «Запустить с камерой» и разреши доступ. Если запрос не появился — разблокируй камеру для сайта.';
-  buildHints();
-
-  goBtn.onclick = async ()=>{
-    await start3D();
-    await startCamera();         // запрос пойдёт здесь
-    await initFaceLandmarker();  // инициализация ML
-    startLoop();
-  };
-  goNoCamBtn.onclick = async ()=>{
-    await start3D();
-    startLoop();
-  };
+/* ===== Diagnostics ===== */
+function showDiag(msg, offerOpen=false){
+  diag.style.display='block';
+  diag.innerHTML = msg + (offerOpen? `<div class="row"><button id="openTop">Открыть в новой вкладке</button></div>` : '');
+  if(offerOpen){
+    const btn=document.getElementById('openTop');
+    btn.onclick=()=>{ try{ window.open(location.href,'_blank'); }catch(e){} };
+  }
 }
-
-/* Hints builder */
-function buildHints(){
+async function runPreflight(){
+  let issues=[];
   const insideIframe = window.top !== window.self;
-  const secure = window.isSecureContext || location.hostname === 'localhost';
-  let tips = [];
-  if(insideIframe) tips.push("Сайт открыт ВНУТРИ iframe. Камера может блокироваться. Открой в отдельной вкладке (кнопка предпросмотра «Open in new tab / Full page»).");
-  if(!secure) tips.push("Нужен HTTPS или localhost. Сейчас: " + location.protocol + "//" + location.host);
-  tips.push("Если камера заблокирована для домена — нажми замочек в адресной строке → Разрешить камеру (или сбросить блокировку).");
-  tips.push("На macOS: Системные настройки → Конфиденциальность → Камера → дай доступ твоему браузеру.");
-  gateTips.textContent = "Подсказки:\n• " + tips.join("\n• ");
+  const secure = window.isSecureContext || location.hostname==='localhost';
+  if(insideIframe) issues.push('Страница запущена ВНУТРИ iframe → камера часто блокируется.');
+  if(!secure) issues.push(`Нужен HTTPS или localhost. Сейчас: ${location.protocol}//${location.host}`);
+  try{
+    if(navigator.permissions && navigator.permissions.query){
+      const st = await navigator.permissions.query({name:'camera'});
+      if(st.state==='denied') issues.push('Камера ЗАБЛОКИРОВАНА для домена — разреши в настройках сайта.');
+    }
+  }catch{}
+  if(issues.length){
+    showDiag('Диагностика:\n• '+issues.join('\n• '), insideIframe);
+  }
+  miniTip.textContent = secure? '' : 'Открой через https или http://localhost — иначе камера не спросит.';
 }
 
-/* UI controls */
-toggleCamBtn.addEventListener('click', ()=>{
-  if(stream){ stopCamera(); toggleCamBtn.textContent = 'Камера: выкл'; status('Камера остановлена'); }
-  else startCamera();
-});
-modeSel.addEventListener('change', ()=>{
-  S.hcp = (modeSel.value === 'hcp');
-  status('Режим: ' + (S.hcp ? 'HCP (без очков)' : 'Анаглиф'));
-});
-depthRange.addEventListener('input', ()=>{
-  S.depth = depthRange.value/100;
-  effect && effect.setEyeSeparation( clamp(0.06*S.depth, 0, 0.12) );
-});
-showDbg.addEventListener('change', ()=>{
-  const vis = showDbg.checked;
-  video.style.display = vis?'block':'none';
-  dbg.style.display = vis?'block':'none';
-});
-permTest.addEventListener('click', async ()=>{
+/* ===== Boot ===== */
+window.addEventListener('error', e=> showDiag('JS ошибка: '+(e.message||'')+'\nСмотри консоль.', false));
+window.addEventListener('unhandledrejection', e=> showDiag('Обещание отклонено: '+(e.reason?.message||e.reason||''), false));
+
+await runPreflight();
+
+startBtn.addEventListener('click', async ()=>{
+  splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 600);
+  ui.hidden=false;
+
+  // 1) Старт рендера сразу
+  await start3D();
+
+  // 2) Мгновенно просим КАМЕРУ (одна кнопка — один жест пользователя)
+  await startCamera(); // если не даст — просто будет fallback на мышь
+
+  // 3) Подгрузим трекинг лица лениво (не мешает запросу камеры)
   try{
-    const s = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user' } });
-    s.getTracks().forEach(t=>t.stop());
-    alert('Камера РАЗРЕШЕНА ✅ — теперь «Запустить с камерой».');
+    const { FaceLandmarker, FilesetResolver } = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5");
+    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5/wasm");
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task" },
+      runningMode:"VIDEO", numFaces:1
+    });
+    status('Трекинг лица: ок');
   }catch(err){
-    alert('Камера НЕ получена ❌: ' + err.name + '\n' + (err.message||''));
     console.warn(err);
+    status('Трекинг лица недоступен (ok, параллакс мышью работает)');
   }
 });
 
-/* Mouse & gyro fallback */
-window.addEventListener('pointermove', (e)=>{
-  const r = app.getBoundingClientRect();
-  S.mouse.x = clamp((e.clientX - r.left)/r.width, 0, 1);
-  S.mouse.y = clamp((e.clientY - r.top)/r.height, 0, 1);
-  S.mouse.active = true;
+toggleCamBtn.addEventListener('click', ()=>{ if(stream){ stopCamera(); status('Камера остановлена'); toggleCamBtn.textContent='Камера: выкл'; } else startCamera(); });
+modeSel.addEventListener('change', ()=>{ S.hcp=(modeSel.value==='hcp'); status('Режим: '+(S.hcp?'HCP':'Анаглиф')); });
+depthRange.addEventListener('input', ()=>{ S.depth=depthRange.value/100; effect && effect.setEyeSeparation(clamp(0.06*S.depth,0,0.12)); });
+showDbg.addEventListener('change', ()=>{ const v=showDbg.checked; video.style.display=v?'block':'none'; dbg.style.display=v?'block':'none'; });
+permTest.addEventListener('click', async ()=>{
+  try{ const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}}); s.getTracks().forEach(t=>t.stop()); alert('Камера РАЗРЕШЕНА ✅'); }
+  catch(err){ alert('Камера НЕ получена ❌: '+err.name+'\n'+(err.message||'')); }
 });
-if (window.DeviceOrientationEvent) {
-  window.addEventListener('deviceorientation', e=>{
-    const nx = clamp((e.gamma||0)/60 + .5, 0, 1); // -60..60 -> 0..1
-    const ny = clamp((e.beta||0)/90 + .5, 0, 1);  // -90..90 -> 0..1
-    S.gyro.enabled = true; S.gyro.x = nx; S.gyro.y = ny;
-  });
-}
 
-/* === 3D === */
+window.addEventListener('pointermove', e=>{
+  const r = app.getBoundingClientRect(); S.mouse.x=clamp((e.clientX-r.left)/r.width,0,1); S.mouse.y=clamp((e.clientY-r.top)/r.height,0,1); S.mouse.active=true;
+});
+
+/* ===== 3D ===== */
 async function start3D(){
-  ui.hidden = false;
-  gate.classList.add('fade-out'); setTimeout(()=> gate.hidden = true, 700);
-
   renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
   renderer.setPixelRatio(S.dpr);
 
@@ -286,174 +196,104 @@ async function start3D(){
   scene.background = new THREE.Color(0x070b11);
   scene.fog = new THREE.Fog(0x070b11, 18, 40);
 
-  camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
-  camera.position.copy(S.targetCam);
-  camera.lookAt(S.lookAt);
+  camera = new THREE.PerspectiveCamera(55,1,0.1,200);
+  camera.position.copy(S.targetCam); camera.lookAt(S.lookAt);
 
-  effect = new AnaglyphEffect(renderer);
-  effect.setEyeSeparation(0.06);
+  effect = new AnaglyphEffect(renderer); effect.setEyeSeparation(0.06);
 
-  /* lights */
-  const hemi = new THREE.HemisphereLight(0xbdd7ff, 0x0a0f14, .9); scene.add(hemi);
-  const key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(5,7,4); scene.add(key);
-  const rim = new THREE.DirectionalLight(0x88ccff, .6); rim.position.set(-6,4,-3); scene.add(rim);
+  const hemi = new THREE.HemisphereLight(0xbdd7ff,0x0a0f14,.9); scene.add(hemi);
+  const key = new THREE.DirectionalLight(0xffffff,1.1); key.position.set(5,7,4); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x88ccff,.6); rim.position.set(-6,4,-3); scene.add(rim);
 
-  /* floor + grid */
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(200,200),
-    new THREE.MeshStandardMaterial({ color:0x0e1420, metalness:.1, roughness:.8 }));
-  plane.rotation.x = -Math.PI/2; scene.add(plane);
-  const grid = new THREE.GridHelper(200,80,0x1b2838,0x152031); grid.position.y = .002; scene.add(grid);
+    new THREE.MeshStandardMaterial({color:0x0e1420, metalness:.1, roughness:.8}));
+  plane.rotation.x=-Math.PI/2; scene.add(plane);
+  const grid = new THREE.GridHelper(200,80,0x1b2838,0x152031); grid.position.y=.002; scene.add(grid);
 
-  /* scene objects */
   const group = new THREE.Group(); scene.add(group);
+  const metal = new THREE.MeshStandardMaterial({color:0x87baff, metalness:.9, roughness:.22});
+  const glass = new THREE.MeshPhysicalMaterial({color:0xffffff, metalness:0, roughness:.08, transmission:.96, thickness:.9, transparent:true});
 
-  const metal = new THREE.MeshStandardMaterial({ color:0x87baff, metalness:.9, roughness:.22 });
-  const glass = new THREE.MeshPhysicalMaterial({ color:0xffffff, metalness:0, roughness:.08, transmission:.96, thickness:.9, transparent:true });
+  const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1,.36,256,32), metal); knot.position.set(0,1.5,0); group.add(knot);
+  for(let i=0;i<8;i++){ const s=new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(.18,.34),48,32),glass);
+    s.position.set(THREE.MathUtils.randFloatSpread(6),THREE.MathUtils.randFloat(.6,2.2),THREE.MathUtils.randFloatSpread(6)); group.add(s); }
+  const boxMat = new THREE.MeshStandardMaterial({color:0x7ef7d2, metalness:.6, roughness:.35});
+  for(let i=0;i<28;i++){ const b=new THREE.Mesh(new THREE.BoxGeometry(.4,.4,.4),boxMat);
+    b.position.set(THREE.MathUtils.randFloatSpread(10),THREE.MathUtils.randFloat(.3,3.5),THREE.MathUtils.randFloatSpread(10));
+    b.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,0); group.add(b); }
 
-  const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1,.36,256,32), metal);
-  knot.position.set(0,1.5,0); group.add(knot);
-
-  for(let i=0;i<8;i++){
-    const s = new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(.18,.34), 48, 32), glass);
-    s.position.set(THREE.MathUtils.randFloatSpread(6), THREE.MathUtils.randFloat(.6,2.2), THREE.MathUtils.randFloatSpread(6));
-    group.add(s);
-  }
-  const boxMat = new THREE.MeshStandardMaterial({ color:0x7ef7d2, metalness:.6, roughness:.35 });
-  for(let i=0;i<28;i++){
-    const b = new THREE.Mesh(new THREE.BoxGeometry(.4,.4,.4), boxMat);
-    b.position.set(THREE.MathUtils.randFloatSpread(10), THREE.MathUtils.randFloat(.3,3.5), THREE.MathUtils.randFloatSpread(10));
-    b.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
-    group.add(b);
-  }
-
-  /* resize + tick */
   window.addEventListener('resize', onResize); onResize();
   const clock = new THREE.Clock();
   renderer.setAnimationLoop(()=>{
     const t = clock.getElapsedTime();
-    knot.rotation.x = t*.35; knot.rotation.y = t*.22;
-    group.children.forEach((o,idx)=>{ if(o===knot) return; o.position.y += Math.sin(t*0.9 + idx)*0.0009; o.rotation.y += 0.003*(idx%3?1:-1); });
-    updateHCP();
-    if(S.hcp) renderer.render(scene, camera); else effect.render(scene, camera);
+    knot.rotation.x=t*.35; knot.rotation.y=t*.22;
+    group.children.forEach((o,idx)=>{ if(o===knot) return; o.position.y += Math.sin(t*.9+idx)*0.0009; o.rotation.y += 0.003*(idx%3?1:-1); });
+    updateHCP(); if(S.hcp) renderer.render(scene,camera); else effect.render(scene,camera);
   });
   status('3D готово');
 }
+function onResize(){ S.w=app.clientWidth; S.h=app.clientHeight; camera.aspect=S.w/S.h; camera.updateProjectionMatrix(); renderer.setSize(S.w,S.h,false); effect.setSize(S.w,S.h); }
 
-function onResize(){
-  S.w = app.clientWidth; S.h = app.clientHeight;
-  camera.aspect = S.w/S.h; camera.updateProjectionMatrix();
-  renderer.setSize(S.w,S.h,false); effect.setSize(S.w,S.h);
-}
-
-let _sx=0, _sy=0, _sz=0;
+let _sx=0,_sy=0,_sz=0;
 function updateHCP(){
   const now = performance.now();
-
-  /* Face tracking */
+  // лицо (если landmarker подгрузился)
   if(faceLandmarker && video.readyState>=2 && stream){
     const res = faceLandmarker.detectForVideo(video, now);
-    if(res && res.faceLandmarks && res.faceLandmarks.length){
-      const lm = res.faceLandmarks[0];
-      const L = lm[33], R = lm[263];
-      const cx = (L.x + R.x)/2, cy = (L.y + R.y)/2;
-      const d  = Math.hypot(L.x-R.x, L.y-R.y);
+    if(res && res.faceLandmarks?.length){
+      const lm=res.faceLandmarks[0], L=lm[33], R=lm[263];
+      const cx=(L.x+R.x)/2, cy=(L.y+R.y)/2, d=Math.hypot(L.x-R.x,L.y-R.y);
       S.face.ok=true; S.face.cx=1-cx; S.face.cy=cy; S.face.eye=d; S.face.ts=now;
-
       if(showDbg.checked){
         dbgCtx.drawImage(video,0,0,dbg.width,dbg.height);
         dbgCtx.fillStyle="#00ff90";
         dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-L.x), dbg.height*L.y, 3, 0, Math.PI*2); dbgCtx.fill();
         dbgCtx.beginPath(); dbgCtx.arc(dbg.width*(1-R.x), dbg.height*R.y, 3, 0, Math.PI*2); dbgCtx.fill();
       }
-    } else {
-      S.face.ok = (now - S.face.ts) < 500;
-    }
+    }else{ S.face.ok=(now - S.face.ts) < 500; }
   }
+  // источник: лицо или мышь
+  let nx=.5, ny=.5, dist=1;
+  if(S.face.ok){ nx=clamp(S.face.cx,0,1); ny=clamp(S.face.cy,0,1); const d=clamp(S.face.eye,0.08,0.35); dist=THREE.MathUtils.mapLinear(d,0.08,0.35,1.8,0.6); }
+  else if(S.mouse.active){ nx=S.mouse.x; ny=S.mouse.y; }
 
-  /* choose source */
-  let nx=.5, ny=.5, distScale=1;
-  if(S.face.ok){
-    nx = clamp(S.face.cx,0,1); ny = clamp(S.face.cy,0,1);
-    const d = clamp(S.face.eye, 0.08, 0.35);
-    distScale = THREE.MathUtils.mapLinear(d, 0.08, 0.35, 1.8, 0.6);
-  }else if(S.gyro.enabled){
-    nx=S.gyro.x; ny=S.gyro.y;
-  }else if(S.mouse.active){
-    nx=S.mouse.x; ny=S.mouse.y;
-  }
+  const maxX=0.9*S.depth*dist, maxY=0.6*S.depth*dist, maxZ=0.9*S.depth*dist;
+  const tx=THREE.MathUtils.mapLinear(nx,0,1,-maxX,maxX);
+  const ty=THREE.MathUtils.mapLinear(ny,0,1, maxY,-maxY);
+  const tz=S.targetCam.z + THREE.MathUtils.mapLinear(nx,0,1,maxZ,-maxZ)*0.15;
 
-  const maxX = 0.9 * S.depth * distScale;
-  const maxY = 0.6 * S.depth * distScale;
-  const maxZ = 0.9 * S.depth * distScale;
-
-  const tx = THREE.MathUtils.mapLinear(nx, 0,1, -maxX,  maxX);
-  const ty = THREE.MathUtils.mapLinear(ny, 0,1,  maxY, -maxY);
-  const tz = S.targetCam.z + THREE.MathUtils.mapLinear(nx, 0,1,  maxZ, -maxZ)*0.15;
-
-  _sx = lerp(_sx, tx, .08);
-  _sy = lerp(_sy, ty, .08);
-  _sz = lerp(_sz, tz, .08);
-
-  camera.position.set(_sx, 1.4 + _sy*0.3, _sz);
-  camera.lookAt(S.lookAt.x + _sx*0.2, S.lookAt.y + _sy*0.2, S.lookAt.z);
+  _sx=lerp(_sx,tx,.08); _sy=lerp(_sy,ty,.08); _sz=lerp(_sz,tz,.08);
+  camera.position.set(_sx,1.4+_sy*0.3,_sz);
+  camera.lookAt(S.lookAt.x+_sx*0.2,S.lookAt.y+_sy*0.2,S.lookAt.z);
 }
 
-/* === CAMERA / PERMISSIONS === */
+/* ===== Camera ===== */
 async function startCamera(){
   try{
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error('getUserMedia неподдерживается этим браузером');
-    }
-    stream = await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} }, audio:false
-    });
-    video.srcObject = stream;
-    await video.play().catch(()=>{}); // Safari может не любить авто-play без звука
+    if(!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia неподдерживается в этом окружении');
+    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} }, audio:false });
+    video.srcObject = stream; await video.play().catch(()=>{});
     if(showDbg.checked) video.style.display='block';
-    status('Камера: ок');
-    toggleCamBtn.textContent = 'Камера: вкл';
+    toggleCamBtn.textContent='Камера: вкл'; status('Камера: ок');
   }catch(err){
-    status('Нет доступа к камере: ' + (err.name||'Error'));
-    console.warn(err);
-    alert('Не удалось получить камеру: '+ err.name + '\n' + (err.message||''));
+    toggleCamBtn.textContent='Камера: выкл';
+    status('Нет доступа к камере: '+(err.name||'Error'));
+    // подробный разбор
+    const insideIframe = window.top !== window.self;
+    const secure = window.isSecureContext || location.hostname==='localhost';
+    let msg = 'Ошибка камеры: '+(err.name||'')+'\n'+(err.message||'');
+    if(insideIframe) msg += '\n• Вы запущены внутри iframe → владелец контейнера мог запретить камеру.';
+    if(!secure) msg += `\n• Нужен HTTPS или localhost. Сейчас: ${location.protocol}//${location.host}`;
+    msg += '\n• Проверь замочек в адресной строке и разреши камеру для домена.';
+    showDiag(msg, insideIframe);
   }
 }
-function stopCamera(){
-  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
-  video.srcObject = null; video.pause();
-}
+function stopCamera(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } video.srcObject=null; video.pause(); }
 
-async function initFaceLandmarker(){
-  try{
-    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5/wasm");
-    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-      baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task" },
-      runningMode:"VIDEO",
-      numFaces:1
-    });
-    status('Трекинг лица: ок');
-  }catch(e){
-    console.error(e);
-    status('Не удалось инициализировать трекинг лица');
-  }
-}
+function status(m){ statusEl.textContent=m; clearTimeout(status._t); status._t=setTimeout(()=>statusEl.textContent='Готово',4000); }
 
-/* === MAIN LOOP === */
-function startLoop(){ running = true; }
-
-/* === STATUS helper === */
-let _t; function status(m){ clearTimeout(_t); statusEl.textContent=m; _t=setTimeout(()=>statusEl.textContent='Готово', 4000); }
-
-/* initial tips if loaded directly */
-if (location.protocol === 'file:') {
-  // Раннее предупреждение для file://
-  splash.querySelector('.s-sub').textContent = 'Открой через https или http://localhost (camera-запросы в file:// блокируются)';
-}
-
-/* Debug toggles via keyboard */
-window.addEventListener('keydown', (e)=>{
-  if(e.key.toLowerCase()==='d'){ showDbg.checked=!showDbg.checked; showDbg.dispatchEvent(new Event('change')); }
-});
+// file:// предупреждение
+if(location.protocol==='file:'){ miniTip.textContent='Открой через https или http://localhost — в file:// камера блокируется.'; }
 </script>
 </body>
 </html>

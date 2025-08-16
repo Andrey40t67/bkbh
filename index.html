@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<title>АНДРЕЙ — Игры на управление рукой (старт всегда работает)</title>
+<title>АНДРЕЙ — Ручное управление (Диагностическая версия)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="color-scheme" content="dark" />
 <style>
@@ -56,7 +56,11 @@
   /* FPS pill */
   #fps{ position:absolute; left:12px; bottom:12px; z-index:40; font:600 12px system-ui; opacity:.8; background:#0d1421cc; border:1px solid var(--line); padding:6px 8px; border-radius:10px }
 
-  @media (max-width:720px){ .name{font-size:30px} #video,#dbg{display:none!important} }
+  /* Logger */
+  #log{ position:absolute; right:12px; top:12px; width:min(420px, 90vw); max-height:42vh; overflow:auto; font:12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#0d1421cc; border:1px solid var(--line); border-radius:12px; padding:8px 10px; white-space:pre-wrap; z-index:60 }
+  #log b{ color:#bff }
+
+  @media (max-width:720px){ .name{font-size:30px} #video,#dbg{display:none!important} #log{display:none} }
 </style>
 </head>
 <body>
@@ -68,7 +72,7 @@
     <button id="btnStart" class="btn">Запустить камеру</button>
     <label>Зеркало X <input type="checkbox" id="mirrorX" checked></label>
     <label>Сглаживание <input id="smooth" type="range" min="0" max="95" value="65"></label>
-    <label>Чувств. пинча <input id="pinch" type="range" min="20" max="200" value="90"></input></label>
+    <label>Чувств. пинча <input id="pinch" type="range" min="20" max="200" value="90"></label>
     <label>Качество <select id="quality"><option value="fast" selected>Быстро</option><option value="balanced">Сбаланс.</option><option value="quality">Качество</option></select></label>
     <label><input type="checkbox" id="showDbg"> Отладка</label>
     <div class="sep"></div>
@@ -79,10 +83,9 @@
     <div class="logo">
       <div class="made">СОЗДАНО</div>
       <div class="name">АНДРЕЕМ</div>
-      <div class="sub">управление одной рукой — щипок = клик (стабильный старт)</div>
+      <div class="sub">диагностическая версия — старт обязателен</div>
       <button id="startBtn" class="start" onclick="window.__start && window.__start()">НАЧАТЬ</button>
-      <div id="miniTip" style="opacity:.75;margin-top:8px;font-size:12px">Сначала откроется меню. Камеру включишь отдельной кнопкой.</div>
-      <div id="bootMark" style="margin-top:6px;font-size:12px;opacity:.6">JS не запущен</div>
+      <div id="bootMark" style="margin-top:6px;font-size:12px;opacity:.7">JS не запущен</div>
     </div>
   </div>
 
@@ -93,6 +96,8 @@
   <div id="cursor"></div>
   <div id="fps">render: — fps • track: — fps</div>
 
+  <pre id="log"></pre>
+
   <video id="video" playsinline muted></video>
   <canvas id="dbg" width="240" height="160"></canvas>
   <div id="diag"></div>
@@ -100,7 +105,7 @@
 
 <script>
 'use strict';
-// ===== Minimal boot marker (если видишь «JS не запущен», значит скрипт не работает) =====
+// ===== Boot marker =====
 (function(){ var m=document.getElementById('bootMark'); if(m) m.textContent='JS запущен ✓'; })();
 </script>
 
@@ -129,6 +134,7 @@ const dbgCtx = dbg.getContext('2d');
 const diag = document.getElementById('diag');
 const cursor = document.getElementById('cursor');
 const fpsEl = document.getElementById('fps');
+const logEl = document.getElementById('log');
 
 // ===== State =====
 let W=0,H=0, DPR=Math.min(window.devicePixelRatio||1, 2);
@@ -136,9 +142,7 @@ let mode='menu';
 let lastT=performance.now();
 let renderFPS=0, trackFPS=0; let rfCount=0, trCount=0, lastRF=performance.now(), lastTR=performance.now();
 let processing=false;
-
 const pointer = { x:.5, y:.5, rawX:.5, rawY:.5, pinch:false, pinchDown:false, pinchUp:false };
-let hands=null, cameraWrapper=null, stream=null;
 let currentGame=null;
 
 const GAMES=[
@@ -152,17 +156,18 @@ const GAMES=[
 // ===== Utils =====
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
-function status(m){ statusEl.textContent=m; clearTimeout(status._t); status._t=setTimeout(()=>statusEl.textContent='Готово',3000); }
-function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; }
+function status(m){ statusEl.textContent=m; log('<b>STATUS:</b> '+m); clearTimeout(status._t); status._t=setTimeout(()=>statusEl.textContent='Готово',3000); }
+function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; log('<b>ERROR:</b> '+msg); }
+function log(m){ logEl.textContent += (m+'\n'); logEl.scrollTop = logEl.scrollHeight; }
 
-function resize(){ W=app.clientWidth; H=app.clientHeight; canvas.width=W*DPR; canvas.height=H*DPR; canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(DPR,0,0,DPR,0,0); }
+function resize(){ W=app.clientWidth; H=app.clientHeight; canvas.width=W*DPR; canvas.height=H*DPR; canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(DPR,0,0,DPR,0,0); log('<b>resize</b>: '+W+'x'+H); }
 window.addEventListener('resize', resize);
 
-// ===== Safe START (двойная страховка: addEventListener + inline onclick) =====
+// ===== Safe START =====
 window.__start = start; // для onclick
 startBtn.addEventListener('click', start);
-
 function start(){
+  log('<b>click:</b> НАЧАТЬ');
   try{
     splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 550);
     ui.hidden=false; menu.hidden=false; buildMenu(); resize();
@@ -170,24 +175,24 @@ function start(){
   }catch(e){ showDiag('Старт не удался: '+(e.message||e)); }
 }
 
-btnBack.addEventListener('click', ()=> setMode('menu'));
+btnBack.addEventListener('click', ()=>{ setMode('menu'); log('<b>click:</b> Меню'); });
 btnStart.addEventListener('click', startCamera);
 showDbg.addEventListener('change', ()=>{ const v=showDbg.checked; video.style.display=dbg.style.display=v?'block':'none'; });
 
 function buildMenu(){ cardsEl.innerHTML=''; GAMES.forEach(g=>{ const el=document.createElement('div'); el.className='card'; el.dataset.id=g.id; el.innerHTML=`<h3>${g.name}</h3><p>${g.desc}</p><div class="hint">Пинч = выбрать</div>`; cardsEl.appendChild(el); }); }
-
 function setMode(m){ mode=m; if(mode==='menu'){ currentGame=null; menu.hidden=false; btnBack.disabled=true; } else { btnBack.disabled=false; menu.hidden=true; currentGame = Games[mode](); currentGame.init(); } }
 
 // ===== Pointer fallback (mouse) =====
 app.addEventListener('pointermove', (e)=>{ const r=app.getBoundingClientRect(); pointer.rawX=(e.clientX-r.left)/r.width; pointer.rawY=(e.clientY-r.top)/r.height; });
 app.addEventListener('pointerdown', ()=>{ pointer.pinch=true; pointer.pinchDown=true; addRipple(pointer.x*W, pointer.y*H); setTimeout(()=>{ pointer.pinch=false; pointer.pinchUp=true; },120); });
 
-// ===== Dynamic loader for MediaPipe (загружаем ТОЛЬКО при нажатии «Запустить камеру») =====
-function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('Не загрузился '+src)); document.head.appendChild(s); }); }
-async function loadHandsLibs(){ if(window.Hands) return; await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js'); await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js'); }
+// ===== Dynamic loader (by click) =====
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=()=>{ log('loaded: '+src); res(); }; s.onerror=()=>{ log('FAIL load: '+src); rej(new Error('Не загрузился '+src)); }; document.head.appendChild(s); }); }
+async function loadHandsLibs(){ if(window.Hands) return; log('loading libs…'); await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js'); await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js'); }
 
-// ===== Camera + Hands (fast & stable) =====
+// ===== Camera + Hands =====
 async function startCamera(){
+  log('<b>click:</b> Запустить камеру');
   try{
     await loadHandsLibs();
     const HandsCtor = (window.Hands && window.Hands.Hands) || window.Hands || null;
@@ -200,18 +205,26 @@ async function startCamera(){
     hands.onResults(onHands);
 
     let camW = (quality==='quality')? 960 : (quality==='balanced'? 720 : 640);
-    let camH = 540; // 16:9
+    let camH = 540;
 
     if(CameraCtor){
-      const cam = new CameraCtor(video, { width:camW, height:camH, onFrame: async()=>{ if(!processing){ processing=true; await hands.send({image:video}); processing=false; trCount++; const now=performance.now(); if(now-lastTR>500){ trackFPS=(trCount*1000)/(now-lastTR); trCount=0; lastTR=now; } } } });
+      const cam = new CameraCtor(video, { width:camW, height:camH, onFrame: async()=>{ await hands.send({image:video}); trCount++; const now=performance.now(); if(now-lastTR>500){ trackFPS=(trCount*1000)/(now-lastTR); trCount=0; lastTR=now; } } });
       await cam.start();
     } else {
       const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:camW}, height:{ideal:camH} }, audio:false });
       video.srcObject=stream; await video.play();
-      const tick=async()=>{ if(!processing){ processing=true; await hands.send({image:video}); processing=false; trCount++; const now=performance.now(); if(now-lastTR>500){ trackFPS=(trCount*1000)/(now-lastTR); trCount=0; lastTR=now; } } requestAnimationFrame(tick); }; requestAnimationFrame(tick);
+      const tick=async()=>{ await hands.send({image:video}); trCount++; const now=performance.now(); if(now-lastTR>500){ trackFPS=(trCount*1000)/(now-lastTR); trCount=0; lastTR=now; } requestAnimationFrame(tick); }; requestAnimationFrame(tick);
     }
     status('Камера: ок'); if(showDbg.checked) video.style.display='block';
-  }catch(err){ showDiag('Камеру получить не удалось: '+(err.message||err)); status('Камера недоступна — можно играть мышью'); }
+  }catch(err){
+    showDiag('Камеру получить не удалось: '+(err.message||err));
+    // дополнительная проверка getUserMedia, чтобы точно увидеть запрос
+    try{
+      log('trying plain getUserMedia…');
+      const stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+      video.srcObject=stream; await video.play(); status('Webcam ✓ (plain)');
+    }catch(e){ showDiag('getUserMedia тоже не дал: '+(e.name||'')+' '+(e.message||'')); }
+  }
 }
 
 function onHands(res){
@@ -221,21 +234,14 @@ function onHands(res){
   const th  = lm[4];
   const wrist = lm[0];
   const idxMCP = lm[5];
-
-  // coords 0..1
   const rawX = mirrorX.checked ? (1 - idx.x) : idx.x;
   const rawY = idx.y;
-
-  // EMA smoothing
-  const k = (smoothRange.value|0)/100; // 0..0.95
+  const k = (smoothRange.value|0)/100; // EMA
   pointer.rawX = rawX*(1-k) + pointer.rawX*k;
   pointer.rawY = rawY*(1-k) + pointer.rawY*k;
-
-  // pinch with hysteresis
   const palm = Math.hypot(idxMCP.x - wrist.x, idxMCP.y - wrist.y) + 1e-6;
   const d = Math.hypot(idx.x - th.x, idx.y - th.y) / palm;
-  const base = (pinchRange.value|0)/1000; // 0.02..0.2
-  const onT = base, offT = base*1.6;
+  const base = (pinchRange.value|0)/1000; const onT=base, offT=base*1.6;
   const prev = pointer.pinch;
   if(!prev && d < onT) pointer.pinch = true;
   if(prev && d > offT) pointer.pinch = false;
@@ -243,7 +249,7 @@ function onHands(res){
   pointer.pinchUp   = (prev && !pointer.pinch);
 }
 
-// ===== Games =====
+// ===== Games (same as before, simplified drawing) =====
 const Games = {
   breaker(){
     let paddle={x:W/2,y:H-80,w:120,h:14}, ball={x:W/2,y:H-100,vx:0,vy:0,r:8, live:false}, bricks=[], rows=6, cols=10, score=0, lives=3;
@@ -318,13 +324,13 @@ const Games = {
   }
 };
 
-// ===== Main loop (render 60fps) =====
+// ===== Main loop =====
 function loop(){ requestAnimationFrame(loop); const now=performance.now(); const dt=now-lastT; lastT=now; rfCount++; if(now-lastRF>500){ renderFPS=(rfCount*1000)/(now-lastRF); rfCount=0; lastRF=now; }
   ctx.clearRect(0,0,W,H); drawGrid();
   if(mode==='menu'){ drawMenuHover(); } else if(currentGame){ currentGame.update(dt); currentGame.draw(); }
   pointer.x = lerp(pointer.x, pointer.rawX, 0.6); pointer.y = lerp(pointer.y, pointer.rawY, 0.6);
   const cx = pointer.x*W, cy = pointer.y*H; cursor.style.left=cx+'px'; cursor.style.top=cy+'px'; cursor.classList.toggle('pinching', pointer.pinch);
-  if(mode==='menu' && pointer.pinchDown){ const hovered = getHoveredCard(cx,cy); if(hovered){ setMode(hovered.dataset.id); pointer.pinchDown=false; addRipple(cx,cy); } }
+  if(mode==='menu' && pointer.pinchDown){ const hovered = getHoveredCard(cx,cy); if(hovered){ setMode(hovered.dataset.id); pointer.pinchDown=false; addRipple(cx,cy); log('<b>select game:</b> '+hovered.dataset.id); } }
   fpsEl.textContent = `render: ${renderFPS.toFixed(0)} fps • track: ${trackFPS.toFixed(0)} fps`;
   pointer.pinchDown=false; pointer.pinchUp=false;
 }
@@ -335,9 +341,9 @@ function getHoveredCard(cx,cy){ for(const el of cardsEl.children){ if(hitCard(el
 function addRipple(x,y){ const d=document.createElement('div'); d.className='ripple'; d.style.left=x+'px'; d.style.top=y+'px'; document.body.appendChild(d); setTimeout(()=>d.remove(), 520); }
 
 // kick off
-resize(); buildMenu(); loop();
+resize(); buildMenu(); loop(); log('boot complete');
 
-// safety: show any error
+// safety
 window.addEventListener('error', e=> showDiag('JS ошибка: '+(e.message||'')));
 window.addEventListener('unhandledrejection', e=> showDiag('Promise отклонён: '+(e.reason && (e.reason.message||e.reason))));
 </script>

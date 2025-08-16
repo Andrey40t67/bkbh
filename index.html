@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HandGames Pro - Жестовое управление</title>
+    <title>HandGames Pro - Исправленная версия</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         
@@ -19,11 +19,11 @@
             color: white;
             overflow: hidden;
             height: 100vh;
-            cursor: auto; /* ПОКАЗЫВАЕМ МЫШЬ НА СТАРТЕ */
+            cursor: auto;
         }
 
         body.game-mode {
-            cursor: none !important; /* УБИРАЕМ ТОЛЬКО В ИГРЕ */
+            cursor: none !important;
         }
 
         .bg-overlay {
@@ -45,7 +45,7 @@
             z-index: 1;
         }
 
-        /* Стартовый экран с КРАСИВЫМИ стилями */
+        /* Стартовый экран */
         #startScreen {
             position: fixed;
             top: 0;
@@ -108,21 +108,6 @@
             border-color: rgba(255, 255, 255, 0.8);
         }
 
-        .start-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: left 0.5s;
-        }
-
-        .start-btn:hover::before {
-            left: 100%;
-        }
-
         .loading-text {
             margin-top: 25px;
             color: rgba(255, 255, 255, 0.8);
@@ -183,32 +168,17 @@
             overflow: hidden;
         }
 
-        .game-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .game-card:hover, .game-card.hovered {
+        .game-card.hovered {
             transform: translateY(-10px) scale(1.02);
             border-color: #667eea;
             box-shadow: 0 25px 50px rgba(102, 126, 234, 0.4);
-        }
-
-        .game-card:hover::before, .game-card.hovered::before {
-            opacity: 1;
         }
 
         .game-card.selected {
             background: rgba(102, 126, 234, 0.3);
             transform: scale(1.08);
             border-color: #fff;
+            box-shadow: 0 30px 60px rgba(102, 126, 234, 0.6);
         }
 
         .game-icon {
@@ -272,9 +242,20 @@
             animation: pulse 2s infinite;
         }
 
+        .status-dot.pinch-active {
+            background: #f59e0b;
+            box-shadow: 0 0 15px #f59e0b;
+            animation: pinch-pulse 0.5s infinite;
+        }
+
         @keyframes pulse {
             0%, 100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.3); opacity: 0.7; }
+        }
+
+        @keyframes pinch-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.5); }
         }
 
         .hud-controls {
@@ -297,6 +278,11 @@
         .hud-btn:hover {
             background: rgba(102, 126, 234, 0.8);
             transform: translateY(-2px);
+        }
+
+        .hud-btn.pinch-hover {
+            background: rgba(245, 158, 11, 0.8);
+            transform: scale(1.1);
         }
 
         #gameInfo {
@@ -322,7 +308,7 @@
             text-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
         }
 
-        /* Улучшенный курсор */
+        /* Улучшенный курсор с подсветкой при hover */
         #handCursor {
             position: fixed;
             width: 35px;
@@ -332,7 +318,7 @@
             border: 4px solid #667eea;
             pointer-events: none;
             z-index: 1000;
-            transition: all 0.05s ease;
+            transition: all 0.1s ease;
             box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
             display: none;
         }
@@ -340,14 +326,42 @@
         #handCursor.pinching {
             background: radial-gradient(circle, #ef4444, rgba(239, 68, 68, 0.6));
             border-color: #ef4444;
-            transform: scale(2);
-            box-shadow: 0 12px 35px rgba(239, 68, 68, 0.8);
-            animation: pinchPulse 0.3s ease-in-out infinite;
+            transform: scale(1.8);
+            box-shadow: 0 15px 35px rgba(239, 68, 68, 0.8);
         }
 
-        @keyframes pinchPulse {
-            0%, 100% { box-shadow: 0 12px 35px rgba(239, 68, 68, 0.8); }
-            50% { box-shadow: 0 15px 45px rgba(239, 68, 68, 1); }
+        #handCursor.hovering {
+            background: radial-gradient(circle, #f59e0b, rgba(245, 158, 11, 0.6));
+            border-color: #f59e0b;
+            transform: scale(1.3);
+            box-shadow: 0 12px 30px rgba(245, 158, 11, 0.6);
+        }
+
+        /* Круглая палитра в рисовалке */
+        .color-palette {
+            position: fixed;
+            top: 50%;
+            right: 50px;
+            transform: translateY(-50%);
+            width: 120px;
+            height: 120px;
+            z-index: 75;
+            display: none;
+        }
+
+        .color-item {
+            position: absolute;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .color-item.active {
+            transform: scale(1.4);
+            border-color: white;
+            box-shadow: 0 0 20px currentColor;
         }
 
         .ripple {
@@ -356,7 +370,7 @@
             background: radial-gradient(circle, rgba(102, 126, 234, 0.8) 0%, transparent 70%);
             pointer-events: none;
             z-index: 999;
-            animation: ripple-effect 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: ripple-effect 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         @keyframes ripple-effect {
@@ -365,7 +379,7 @@
                 opacity: 1;
             }
             to {
-                transform: scale(15);
+                transform: scale(12);
                 opacity: 0;
             }
         }
@@ -400,7 +414,7 @@
     <div id="startScreen">
         <div class="start-container">
             <h1>🎮 HANDGAMES PRO</h1>
-            <p>Управляй играми жестами руки в высоком качестве</p>
+            <p>Управляй играми жестами руки с исправленным пинчем</p>
             <button class="start-btn" onclick="initSystem()">🚀 ЗАПУСТИТЬ ИГРЫ</button>
             <div class="loading-text" id="loadingText"></div>
         </div>
@@ -450,7 +464,10 @@
                 <span>FPS: <span id="fpsDisplay">0</span></span>
             </div>
             <div class="hud-item">
-                <span>РАССТОЯНИЕ: <span id="pinchDistance">---</span></span>
+                <span>ВРЕМЯ: <span id="gameTimer">00:00</span></span>
+            </div>
+            <div class="hud-item">
+                <span>РАССТОЯНИЕ: <span id="pinchDistance">---</span>px</span>
             </div>
         </div>
         <div class="hud-controls">
@@ -464,6 +481,9 @@
         <div class="score" id="scoreDisplay">ОЧКИ: 0</div>
         <div id="gameInstructions">Инструкции</div>
     </div>
+
+    <!-- Круглая палитра для рисовалки -->
+    <div class="color-palette" id="colorPalette"></div>
 
     <!-- Кастомный курсор -->
     <div id="handCursor"></div>
@@ -489,9 +509,13 @@
         let handData = null;
         let isPinching = false;
         let lastPinchState = false;
+        let pinchStabilityCounter = 0; // Для стабилизации пинча
+        let hoveredElement = null;
         
         let frameCount = 0;
         let lastFrameTime = performance.now();
+        let gameStartTime = 0;
+        let gameTimer = 0;
 
         // ===== РАЗМЕРЫ КАНВАСА =====
         function resizeCanvas() {
@@ -542,6 +566,7 @@
                     onFrame: async () => {
                         await hands.send({ image: video });
                         updateFPS();
+                        updateGameTimer();
                     },
                     width: 640,
                     height: 480
@@ -553,7 +578,7 @@
                 
                 setTimeout(() => {
                     document.getElementById('startScreen').style.display = 'none';
-                    document.body.classList.add('game-mode'); // УБИРАЕМ КУРСОР
+                    document.body.classList.add('game-mode');
                     showMenu();
                 }, 1000);
 
@@ -572,46 +597,60 @@
                 
                 document.getElementById('handDot').classList.add('active');
                 document.getElementById('handStatus').textContent = '✅';
+                handCursor.style.display = 'block'; // Показываем курсор
             } else {
                 handData = null;
                 isPinching = false;
+                pinchStabilityCounter = 0;
+                hoveredElement = null;
                 
                 document.getElementById('handDot').classList.remove('active');
                 document.getElementById('handStatus').textContent = '❌';
                 document.getElementById('pinchDot').classList.remove('active');
                 document.getElementById('pinchStatus').textContent = '❌';
-                document.getElementById('pinchDistance').textContent = '---';
+                document.getElementById('pinchDistance').textContent = '---px';
                 
+                // ИСПРАВЛЕНИЕ: Скрываем курсор когда рука пропала
                 handCursor.style.display = 'none';
+                handCursor.classList.remove('pinching', 'hovering');
             }
         }
 
-        // ===== НОВЫЙ АЛГОРИТМ ПИНЧА (ИЗ ИССЛЕДОВАНИЙ) =====
+        // ===== ИСПРАВЛЕННЫЙ АЛГОРИТМ ПИНЧА =====
         function processHandData(landmarks) {
             const indexTip = landmarks[8];   // Кончик указательного
-            const thumbTip = landmarks[12];   // Кончик большого
-            const indexMcp = landmarks[13];   // Основание указательного
-            const thumbMcp = landmarks[14];   // Основание большого
+            const thumbTip = landmarks[4];   // ИСПРАВЛЕНО: Кончик большого пальца (было 12)
+            const indexMcp = landmarks[5];   // Основание указательного
+            const thumbMcp = landmarks[1];   // Основание большого
 
             // КООРДИНАТЫ БЕЗ ЗЕРКАЛА
             const x = indexTip.x * window.innerWidth;
             const y = indexTip.y * window.innerHeight;
 
-            // НОВЫЙ АЛГОРИТМ ПИНЧА - ОТДЕЛЬНЫЕ РАССТОЯНИЯ ПО ОСЯМ
+            // СТАБИЛИЗИРОВАННЫЙ АЛГОРИТМ ПИНЧА
             const distance = {
                 x: Math.abs(indexTip.x - thumbTip.x),
                 y: Math.abs(indexTip.y - thumbTip.y),
                 z: Math.abs((indexTip.z || 0) - (thumbTip.z || 0))
             };
 
-            // ПОРОГИ ИЗ ИССЛЕДОВАНИЙ (БОЛЕЕ НАДЕЖНЫЕ)
-            const areFingersCloseEnough = 
-                distance.x < 0.06 && 
-                distance.y < 0.06 && 
-                distance.z < 0.08;
+            // Общее расстояние в пикселях для отладки
+            const pixelDistance = Math.sqrt(
+                Math.pow((indexTip.x - thumbTip.x) * window.innerWidth, 2) +
+                Math.pow((indexTip.y - thumbTip.y) * window.innerHeight, 2)
+            );
+
+            // СТАБИЛИЗАЦИЯ ПИНЧА - требуем несколько кадров подряд
+            const isPinchingNow = distance.x < 0.05 && distance.y < 0.05 && distance.z < 0.06;
+            
+            if (isPinchingNow) {
+                pinchStabilityCounter++;
+            } else {
+                pinchStabilityCounter = 0;
+            }
 
             lastPinchState = isPinching;
-            isPinching = areFingersCloseEnough;
+            isPinching = pinchStabilityCounter >= 3; // Требуем 3 кадра подряд
 
             handData = {
                 x: x,
@@ -619,38 +658,73 @@
                 isPinching: isPinching,
                 justPinched: isPinching && !lastPinchState,
                 justReleased: !isPinching && lastPinchState,
-                distance: distance
+                distance: distance,
+                pixelDistance: pixelDistance
             };
 
-            // ОТЛАДОЧНАЯ ИНФОРМАЦИЯ
-            const totalDist = Math.sqrt(distance.x * distance.x + distance.y * distance.y + distance.z * distance.z);
-            document.getElementById('pinchDistance').textContent = totalDist.toFixed(3);
+            // Отладочная информация
+            document.getElementById('pinchDistance').textContent = pixelDistance.toFixed(0) + 'px';
 
-            // Курсор
-            handCursor.style.display = 'block';
+            // Обновление курсора
             handCursor.style.left = (x - 17) + 'px';
             handCursor.style.top = (y - 17) + 'px';
             
+            // Проверка hover элементов
+            updateHoverStates();
+            
             if (isPinching) {
                 handCursor.classList.add('pinching');
-                document.getElementById('pinchDot').classList.add('active');
+                handCursor.classList.remove('hovering');
+                document.getElementById('pinchDot').classList.add('pinch-active');
                 document.getElementById('pinchStatus').textContent = '✅';
-            } else {
+            } else if (hoveredElement) {
+                handCursor.classList.add('hovering');
                 handCursor.classList.remove('pinching');
-                document.getElementById('pinchDot').classList.remove('active');
+                document.getElementById('pinchDot').classList.remove('pinch-active', 'active');
+                document.getElementById('pinchStatus').textContent = '⚡';
+            } else {
+                handCursor.classList.remove('pinching', 'hovering');
+                document.getElementById('pinchDot').classList.remove('pinch-active', 'active');
                 document.getElementById('pinchStatus').textContent = '❌';
             }
 
-            // Обработка пинча
+            // Обработка пинча - только при стабильном срабатывании
             if (handData.justPinched) {
                 createRipple(x, y);
                 handlePinchAction();
             }
+        }
 
-            // Hover эффекты
+        // ===== ОБНОВЛЕНИЕ HOVER СОСТОЯНИЙ =====
+        function updateHoverStates() {
+            hoveredElement = null;
+            
             if (gameState === 'menu') {
-                updateMenuHover();
+                const cards = document.querySelectorAll('.game-card');
+                cards.forEach(card => {
+                    const rect = card.getBoundingClientRect();
+                    if (handData.x >= rect.left && handData.x <= rect.right &&
+                        handData.y >= rect.top && handData.y <= rect.bottom) {
+                        card.classList.add('hovered');
+                        hoveredElement = card;
+                    } else {
+                        card.classList.remove('hovered');
+                    }
+                });
             }
+            
+            // Проверка hover для кнопок HUD
+            const hudButtons = document.querySelectorAll('.hud-btn');
+            hudButtons.forEach(btn => {
+                const rect = btn.getBoundingClientRect();
+                if (handData.x >= rect.left && handData.x <= rect.right &&
+                    handData.y >= rect.top && handData.y <= rect.bottom) {
+                    btn.classList.add('pinch-hover');
+                    hoveredElement = btn;
+                } else {
+                    btn.classList.remove('pinch-hover');
+                }
+            });
         }
 
         // ===== ОБРАБОТКА ПИНЧА =====
@@ -665,21 +739,18 @@
                         card.classList.add('selected');
                         setTimeout(() => {
                             startGame(card.dataset.game);
-                        }, 200);
+                        }, 300);
                     }
                 });
             }
-        }
-
-        function updateMenuHover() {
-            const cards = document.querySelectorAll('.game-card');
-            cards.forEach(card => {
-                const rect = card.getBoundingClientRect();
+            
+            // Обработка пинча для кнопок
+            const hudButtons = document.querySelectorAll('.hud-btn');
+            hudButtons.forEach(btn => {
+                const rect = btn.getBoundingClientRect();
                 if (handData.x >= rect.left && handData.x <= rect.right &&
                     handData.y >= rect.top && handData.y <= rect.bottom) {
-                    card.classList.add('hovered');
-                } else {
-                    card.classList.remove('hovered');
+                    btn.click();
                 }
             });
         }
@@ -690,8 +761,10 @@
             document.getElementById('gameMenu').style.display = 'flex';
             document.getElementById('backBtn').style.display = 'none';
             document.getElementById('gameInfo').style.display = 'none';
+            document.getElementById('colorPalette').style.display = 'none';
             currentGame = null;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            gameStartTime = 0;
         }
 
         function startGame(gameType) {
@@ -699,6 +772,8 @@
             document.getElementById('gameMenu').style.display = 'none';
             document.getElementById('backBtn').style.display = 'block';
             document.getElementById('gameInfo').style.display = 'block';
+            
+            gameStartTime = Date.now();
 
             switch(gameType) {
                 case 'breakout':
@@ -712,6 +787,7 @@
                     break;
                 case 'draw':
                     currentGame = new DrawingGame();
+                    document.getElementById('colorPalette').style.display = 'block';
                     break;
             }
         }
@@ -730,7 +806,7 @@
             ripple.style.width = '40px';
             ripple.style.height = '40px';
             document.body.appendChild(ripple);
-            setTimeout(() => ripple.remove(), 800);
+            setTimeout(() => ripple.remove(), 600);
         }
 
         function updateFPS() {
@@ -740,6 +816,18 @@
                 document.getElementById('fpsDisplay').textContent = frameCount;
                 frameCount = 0;
                 lastFrameTime = now;
+            }
+        }
+
+        function updateGameTimer() {
+            if (gameStartTime > 0) {
+                const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('gameTimer').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                document.getElementById('gameTimer').textContent = '00:00';
             }
         }
 
@@ -753,6 +841,7 @@
                 this.bricks = [];
                 this.score = 0;
                 this.level = 1;
+                this.lives = 3;
                 this.createBricks();
             }
 
@@ -824,7 +913,15 @@
                 }
 
                 if (this.ball.y > canvas.height + 20) {
-                    this.gameOver();
+                    this.lives--;
+                    if (this.lives <= 0) {
+                        this.gameOver();
+                    } else {
+                        this.ball.x = canvas.width / 2;
+                        this.ball.y = canvas.height / 2;
+                        this.ball.dx = 6;
+                        this.ball.dy = -6;
+                    }
                 }
 
                 this.updateUI();
@@ -833,7 +930,7 @@
             render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // Кирпичи с неоновым эффектом
+                // Кирпичи
                 this.bricks.forEach(brick => {
                     ctx.fillStyle = brick.color;
                     ctx.shadowColor = brick.color;
@@ -859,12 +956,12 @@
 
             updateUI() {
                 document.getElementById('scoreDisplay').textContent = `ОЧКИ: ${this.score}`;
-                document.getElementById('gameInstructions').textContent = `Уровень: ${this.level} | Управляй рукой!`;
+                document.getElementById('gameInstructions').textContent = `Уровень: ${this.level} | Жизни: ${this.lives} | Управляй рукой!`;
             }
 
             gameOver() {
                 setTimeout(() => {
-                    alert(`🏓 ИГРА ОКОНЧЕНА!\nОчки: ${this.score}\nУровень: ${this.level}`);
+                    alert(`🏓 ИГРА ОКОНЧЕНА!\nОчки: ${this.score}\nУровень: ${this.level}\nВремя: ${document.getElementById('gameTimer').textContent}`);
                     showMenu();
                 }, 100);
             }
@@ -873,7 +970,7 @@
         // ===== 2. ШУТЕР =====
         class ShooterGame {
             constructor() {
-                this.player = { x: canvas.width / 2, y: canvas.height - 80, size: 25 };
+                this.player = { x: canvas.width / 2, y: canvas.height - 80, size: 25, health: 100 };
                 this.bullets = [];
                 this.enemies = [];
                 this.score = 0;
@@ -934,15 +1031,28 @@
                     });
                 });
 
+                // Столкновения с игроком
+                this.enemies.forEach((enemy, index) => {
+                    const dist = Math.sqrt(
+                        Math.pow(enemy.x - this.player.x, 2) + 
+                        Math.pow(enemy.y - this.player.y, 2)
+                    );
+                    
+                    if (dist < enemy.size + this.player.size) {
+                        this.enemies.splice(index, 1);
+                        this.player.health -= 25;
+                        
+                        if (this.player.health <= 0) {
+                            this.gameOver();
+                        }
+                    }
+                });
+
                 this.updateUI();
             }
 
             render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Космический фон
-                ctx.fillStyle = 'rgba(10, 10, 30, 0.3)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 // Игрок
                 ctx.fillStyle = '#667eea';
@@ -975,12 +1085,29 @@
                     ctx.arc(enemy.x, enemy.y, enemy.size, 0, Math.PI * 2);
                     ctx.fill();
                 });
+
+                // Полоса здоровья
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                ctx.fillRect(20, canvas.height - 40, 200, 20);
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(20, canvas.height - 40, (this.player.health / 100) * 200, 20);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(20, canvas.height - 40, 200, 20);
+
                 ctx.shadowBlur = 0;
             }
 
             updateUI() {
                 document.getElementById('scoreDisplay').textContent = `ОЧКИ: ${this.score}`;
-                document.getElementById('gameInstructions').textContent = 'Пинч = стрельба | Уклоняйся!';
+                document.getElementById('gameInstructions').textContent = `Здоровье: ${this.player.health} | Пинч = стрельба!`;
+            }
+
+            gameOver() {
+                setTimeout(() => {
+                    alert(`🚀 ИГРА ОКОНЧЕНА!\nОчки: ${this.score}\nВремя: ${document.getElementById('gameTimer').textContent}`);
+                    showMenu();
+                }, 100);
             }
         }
 
@@ -1017,7 +1144,7 @@
 
                 const now = Date.now();
 
-                if (handData.justPinched && now - this.lastDirectionChange > 200) {
+                if (handData.justPinched && now - this.lastDirectionChange > 300) {
                     const head = this.snake[0];
                     const dx = handData.x - head.x - this.cellSize/2;
                     const dy = handData.y - head.y - this.cellSize/2;
@@ -1074,7 +1201,7 @@
             render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // Неоновая сетка
+                // Сетка
                 ctx.strokeStyle = 'rgba(102, 126, 234, 0.2)';
                 ctx.lineWidth = 1;
                 for (let x = 0; x < canvas.width; x += this.cellSize) {
@@ -1127,13 +1254,13 @@
 
             gameOver() {
                 setTimeout(() => {
-                    alert(`🐍 ИГРА ОКОНЧЕНА!\nОчки: ${this.score}\nДлина: ${this.snake.length}`);
+                    alert(`🐍 ИГРА ОКОНЧЕНА!\nОчки: ${this.score}\nДлина: ${this.snake.length}\nВремя: ${document.getElementById('gameTimer').textContent}`);
                     showMenu();
                 }, 100);
             }
         }
 
-        // ===== 4. УЛУЧШЕННАЯ РИСОВАЛКА =====
+        // ===== 4. ИСПРАВЛЕННАЯ РИСОВАЛКА =====
         class DrawingGame {
             constructor() {
                 this.isDrawing = false;
@@ -1141,16 +1268,61 @@
                 this.brushSize = 6;
                 this.colors = ['#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b', '#ff6b6b', '#06b6d4'];
                 this.currentColor = 0;
-                this.paths = []; // Массив путей
+                this.paths = [];
                 this.currentPath = null;
                 this.strokeCount = 0;
+                this.lastColorChange = 0;
+                this.createColorPalette();
+            }
+
+            createColorPalette() {
+                const palette = document.getElementById('colorPalette');
+                palette.innerHTML = '';
+                
+                const radius = 50;
+                const centerX = 60;
+                const centerY = 60;
+                
+                this.colors.forEach((color, index) => {
+                    const angle = (index / this.colors.length) * 2 * Math.PI;
+                    const x = centerX + radius * Math.cos(angle) - 12.5;
+                    const y = centerY + radius * Math.sin(angle) - 12.5;
+                    
+                    const colorItem = document.createElement('div');
+                    colorItem.className = 'color-item';
+                    colorItem.style.backgroundColor = color;
+                    colorItem.style.left = x + 'px';
+                    colorItem.style.top = y + 'px';
+                    
+                    if (index === this.currentColor) {
+                        colorItem.classList.add('active');
+                    }
+                    
+                    palette.appendChild(colorItem);
+                });
             }
 
             update() {
                 if (!handData) return;
 
+                const now = Date.now();
+
                 // Начало рисования
                 if (handData.justPinched) {
+                    // Проверяем, не нажали ли на палитру цветов
+                    const paletteRect = document.getElementById('colorPalette').getBoundingClientRect();
+                    if (handData.x >= paletteRect.left && handData.x <= paletteRect.right &&
+                        handData.y >= paletteRect.top && handData.y <= paletteRect.bottom) {
+                        
+                        // Долгий пинч для смены цвета
+                        if (now - this.lastColorChange > 500) {
+                            this.currentColor = (this.currentColor + 1) % this.colors.length;
+                            this.createColorPalette();
+                            this.lastColorChange = now;
+                        }
+                        return;
+                    }
+                    
                     this.isDrawing = true;
                     this.currentPath = {
                         points: [{ x: handData.x, y: handData.y }],
@@ -1167,7 +1339,6 @@
                         Math.pow(handData.y - this.lastPoint.y, 2)
                     );
                     
-                    // Добавляем точку только если достаточно далеко (для плавности)
                     if (dist > 2) {
                         this.currentPath.points.push({ x: handData.x, y: handData.y });
                         this.lastPoint = { x: handData.x, y: handData.y };
@@ -1183,17 +1354,12 @@
                     this.isDrawing = false;
                     this.currentPath = null;
                     this.lastPoint = null;
-                    
-                    // Смена цвета после каждого штриха
-                    this.currentColor = (this.currentColor + 1) % this.colors.length;
                 }
 
                 this.updateUI();
             }
 
             render() {
-                // НЕ очищаем canvas для накопительного рисования
-                
                 // Рисуем все завершенные пути
                 this.paths.forEach(path => {
                     if (path.points.length < 2) return;
@@ -1203,12 +1369,12 @@
                     ctx.lineCap = 'round';
                     ctx.lineJoin = 'round';
                     ctx.shadowColor = path.color;
-                    ctx.shadowBlur = 10;
+                    ctx.shadowBlur = 8;
                     
                     ctx.beginPath();
                     ctx.moveTo(path.points[0].x, path.points.y);
                     
-                    // Плавные кривые через все точки
+                    // ИСПРАВЛЕНО: Правильная работа с массивом точек
                     for (let i = 1; i < path.points.length - 1; i++) {
                         const currentPoint = path.points[i];
                         const nextPoint = path.points[i + 1];
@@ -1217,7 +1383,6 @@
                         ctx.quadraticCurveTo(currentPoint.x, currentPoint.y, cpx, cpy);
                     }
                     
-                    // Последняя точка
                     if (path.points.length > 1) {
                         const lastPoint = path.points[path.points.length - 1];
                         ctx.lineTo(lastPoint.x, lastPoint.y);
@@ -1233,10 +1398,10 @@
                     ctx.lineCap = 'round';
                     ctx.lineJoin = 'round';
                     ctx.shadowColor = this.currentPath.color;
-                    ctx.shadowBlur = 10;
+                    ctx.shadowBlur = 8;
                     
                     ctx.beginPath();
-                    ctx.moveTo(this.currentPath.points[0].x, this.currentPath.points.y);
+                    ctx.moveTo(this.currentPath.points[0].x, this.currentPath.points[0].y);
                     
                     for (let i = 1; i < this.currentPath.points.length - 1; i++) {
                         const currentPoint = this.currentPath.points[i];
@@ -1256,30 +1421,6 @@
 
                 ctx.shadowBlur = 0;
 
-                // Палитра цветов
-                this.colors.forEach((color, index) => {
-                    ctx.fillStyle = color;
-                    ctx.shadowColor = color;
-                    ctx.shadowBlur = index === this.currentColor ? 20 : 5;
-                    
-                    const x = 50 + index * 50;
-                    const y = 60;
-                    const radius = index === this.currentColor ? 20 : 15;
-                    
-                    ctx.beginPath();
-                    ctx.arc(x, y, radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    if (index === this.currentColor) {
-                        ctx.strokeStyle = '#ffffff';
-                        ctx.lineWidth = 3;
-                        ctx.shadowBlur = 0;
-                        ctx.beginPath();
-                        ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
-                        ctx.stroke();
-                    }
-                });
-
                 // Предпросмотр кисти
                 if (handData && !handData.isPinching) {
                     ctx.fillStyle = this.colors[this.currentColor];
@@ -1290,14 +1431,13 @@
                     ctx.arc(handData.x, handData.y, this.brushSize / 2, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.globalAlpha = 1;
+                    ctx.shadowBlur = 0;
                 }
-
-                ctx.shadowBlur = 0;
             }
 
             updateUI() {
                 document.getElementById('scoreDisplay').textContent = `ШТРИХИ: ${this.strokeCount}`;
-                document.getElementById('gameInstructions').textContent = 'Пинч = рисовать | Отпусти = новый цвет | C = очистить';
+                document.getElementById('gameInstructions').textContent = 'Пинч = рисовать | Пинч на палитре = сменить цвет | C = очистить';
             }
 
             clearCanvas() {
@@ -1324,7 +1464,6 @@
                 showMenu();
             }
             
-            // Очистка холста в рисовалке
             if (e.key === 'c' && currentGame instanceof DrawingGame) {
                 currentGame.clearCanvas();
             }

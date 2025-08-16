@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>АНДРЕЙ — Реальный 3D без очков (Safari/GitHub-ready)</title>
+<title>АНДРЕЙ — Реальный 3D без очков (Safari/GitHub FIX)</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="color-scheme" content="dark">
 <style>
@@ -11,8 +11,6 @@
   html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif }
   #app{ position:fixed; inset:0; overflow:hidden }
   #gl{ position:absolute; inset:0; width:100%; height:100%; display:block }
-
-  /* UI */
   #ui{ position:absolute; left:12px; right:12px; top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;
        background:#0d1421cc; border:1px solid var(--line); border-radius:14px; padding:10px; backdrop-filter:blur(8px); z-index:5 }
   .btn, select, input[type=range], .ghost{
@@ -23,8 +21,6 @@
   #status{ margin-left:auto; font-size:12px; opacity:.85 }
   #video,#dbg{ position:absolute; right:12px; bottom:12px; width:220px; height:auto; border-radius:12px; border:1px solid var(--line); display:none; z-index:4; background:#000 }
   #dbg{ right:244px }
-
-  /* splash */
   #splash{ position:absolute; inset:0; display:grid; place-items:center; z-index:10; background:
            radial-gradient(900px 640px at 50% 30%, #ffffff12, #00000088 60%, #000), var(--bg) }
   .logo{ text-align:center }
@@ -36,13 +32,8 @@
   .start{ margin-top:18px; padding:12px 18px; font-size:16px; border-radius:14px; border:1px solid #6dbaff80; background:#6dbaff20; cursor:pointer }
   @keyframes shine{ 0%,100%{letter-spacing:.02em} 50%{letter-spacing:.06em} }
   .fade-out{ animation:fadeout .6s ease forwards } @keyframes fadeout{ to{opacity:0;visibility:hidden} }
-
-  /* diagnostics */
   #diag{ position:fixed; left:12px; right:12px; top:12px; z-index:9999; padding:10px 12px; border-radius:12px;
          background:#2a0b0b; color:#ffd9d9; border:1px solid #ff6b6b; font:600 13px/1.3 system-ui; white-space:pre-wrap; display:none }
-  #diag .row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px }
-  #openTop{ padding:6px 10px; border-radius:10px; border:1px solid #ffc2c2; background:#00000033; color:#ffd9d9; cursor:pointer }
-
   @media (max-width:720px){ .name{font-size:30px} #video,#dbg{display:none!important} }
 </style>
 </head>
@@ -50,18 +41,19 @@
 <div id="app">
   <canvas id="gl"></canvas>
 
-  <!-- UI -->
   <div id="ui" hidden>
     <button id="toggleTrack" class="btn">Трекинг: вкл</button>
     <label>Режим:
-      <select id="mode"><option value="hcp">Без очков (HCP)</option><option value="anaglyph">Анаглиф</option></select>
+      <select id="mode">
+        <option value="hcp">Без очков (HCP)</option>
+        <option value="anaglyph" id="optAnaglyph">Анаглиф</option>
+      </select>
     </label>
     <label>Глубина: <input id="depth" type="range" min="0" max="200" value="110"/></label>
     <label><input type="checkbox" id="showDbg"> Отладка</label>
     <div id="status">Готово</div>
   </div>
 
-  <!-- Splash -->
   <div id="splash">
     <div class="logo">
       <div class="made">СОЗДАНО</div>
@@ -74,16 +66,14 @@
 
   <video id="video" playsinline muted></video>
   <canvas id="dbg" width="220" height="140"></canvas>
-
-  <!-- Diagnostics -->
   <div id="diag"></div>
 </div>
 
-<!-- --- libs: UMD/не-модульные (совместимы с Safari) --- -->
+<!-- non-module libs (совместимо с Safari/GitHub Pages) -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/effects/AnaglyphEffect.js"></script>
 
-<!-- Legacy MediaPipe FaceMesh (работает без ES-модулей) -->
+<!-- MediaPipe FaceMesh UMD -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
@@ -100,6 +90,7 @@ const miniTip = document.getElementById('miniTip');
 const statusEl = document.getElementById('status');
 const toggleTrackBtn = document.getElementById('toggleTrack');
 const modeSel = document.getElementById('mode');
+const optAnaglyph = document.getElementById('optAnaglyph');
 const depthRange = document.getElementById('depth');
 const showDbg = document.getElementById('showDbg');
 const video = document.getElementById('video');
@@ -108,8 +99,8 @@ const dbgCtx = dbg.getContext('2d');
 const diag = document.getElementById('diag');
 
 /* ===== State ===== */
-let renderer, scene, camera, effect;
-let faceMesh = null, camUtil = null, trackingEnabled = true;
+let renderer, scene, camera, effect = null, effectCtor = null;
+let faceMesh = null, cameraWrapper = null, trackingEnabled = true, stream = null;
 const S = {
   w:0,h:0,dpr:Math.min(window.devicePixelRatio||1,2),
   hcp:true, depth:1.1,
@@ -122,37 +113,24 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
 
 /* ===== Diagnostics ===== */
-function showDiag(msg, offerOpen){
+function showDiag(msg){
   diag.style.display='block';
-  diag.innerHTML = msg + (offerOpen? `<div class="row"><button id="openTop">Открыть в новой вкладке</button></div>` : '');
-  if(offerOpen){
-    const btn=document.getElementById('openTop');
-    if(btn) btn.onclick=()=>{ try{ window.open(location.href,'_blank'); }catch(e){} };
-  }
+  diag.textContent = msg;
 }
 function preflight(){
   const insideIframe = window.top !== window.self;
-  const secure = window.isSecureContext || location.hostname === 'localhost';
-  let issues=[];
-  if(insideIframe) issues.push('Сайт открыт ВНУТРИ iframe → Safari часто рубит камеру. Открой в новой вкладке.');
-  if(!secure) issues.push(`Нужен HTTPS или localhost. Сейчас: ${location.protocol}//${location.host}`);
-  if(issues.length) showDiag('Диагностика:\n• '+issues.join('\n• '), insideIframe);
-  if(location.protocol==='file:') miniTip.textContent='Открой через https / http://localhost — в file:// камера заблокирована.';
+  const secure = window.isSecureContext || location.hostname==='localhost';
+  if(insideIframe) showDiag('Сайт открыт ВНУТРИ iframe → в Safari камера часто рубится. Открой в новой вкладке.');
+  if(!secure) miniTip.textContent='Открой через https или http://localhost — в file:// камера блокируется.';
 }
 preflight();
 
-/* ===== Splash click — ВСЁ стартует сразу, без ожиданий и модулей ===== */
+/* ===== Start ===== */
 startBtn.addEventListener('click', function(){
   splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 600);
   ui.hidden = false;
-
-  // 1) 3D сразу
   start3D();
-
-  // 2) Мгновенно просим камеру через MediaPipe CameraUtils (жёсткий жест пользователя — этот клик)
-  startFaceMeshTracking(); // внутри сам запросит gUM
-
-  // Fallback управление мышью
+  startCameraAndTracking(); // запрос к камере — прямо из этого клика
   window.addEventListener('pointermove', (e)=>{
     const r = app.getBoundingClientRect();
     S.mouse.x = clamp((e.clientX - r.left)/r.width, 0, 1);
@@ -167,9 +145,17 @@ toggleTrackBtn.addEventListener('click', ()=>{
   toggleTrackBtn.textContent = 'Трекинг: ' + (trackingEnabled ? 'вкл' : 'выкл');
   if(!trackingEnabled){ S.face.ok=false; video.style.display='none'; }
 });
-modeSel.addEventListener('change', ()=>{ S.hcp = (modeSel.value==='hcp'); status('Режим: '+(S.hcp?'HCP':'Анаглиф')); });
-depthRange.addEventListener('input', ()=>{ S.depth = depthRange.value/100; if(effect && effect.setEyeSeparation) effect.setEyeSeparation(clamp(0.06*S.depth,0,0.12)); });
-showDbg.addEventListener('change', ()=>{ const v=showDbg.checked; video.style.display=v?'block':'none'; dbg.style.display=v?'block':'none'; });
+modeSel.addEventListener('change', ()=>{
+  S.hcp = (modeSel.value==='hcp');
+  status('Режим: '+(S.hcp?'HCP':'Анаглиф'));
+});
+depthRange.addEventListener('input', ()=>{
+  S.depth = depthRange.value/100;
+  if(effect && effect.setEyeSeparation) effect.setEyeSeparation(clamp(0.06*S.depth,0,0.12));
+});
+showDbg.addEventListener('change', ()=>{
+  const v=showDbg.checked; video.style.display=v?'block':'none'; dbg.style.display=v?'block':'none';
+});
 
 /* ===== 3D ===== */
 function start3D(){
@@ -183,8 +169,22 @@ function start3D(){
   camera = new THREE.PerspectiveCamera(55,1,0.1,200);
   camera.position.copy(S.targetCam); camera.lookAt(S.lookAt);
 
-  effect = new THREE.AnaglyphEffect(renderer);
-  effect.setEyeSeparation(0.06);
+  // SAFE-анаглиф: проверяем где лежит конструктор
+  effectCtor = (window.THREE && THREE.AnaglyphEffect) || window.AnaglyphEffect || null;
+  if(effectCtor){
+    try{
+      effect = new effectCtor(renderer);
+      effect.setEyeSeparation && effect.setEyeSeparation(0.06);
+    }catch(e){
+      effect = null; effectCtor = null;
+      console.warn('AnaglyphEffect недоступен:', e);
+    }
+  }
+  if(!effectCtor){
+    // спрячем пункт «Анаглиф», чтобы пользователь не выбирал его
+    if(optAnaglyph) optAnaglyph.remove();
+    S.hcp = true;
+  }
 
   // lights
   const hemi = new THREE.HemisphereLight(0xbdd7ff,0x0a0f14,.9); scene.add(hemi);
@@ -209,7 +209,6 @@ function start3D(){
     b.position.set(THREE.MathUtils.randFloatSpread(10),THREE.MathUtils.randFloat(.3,3.5),THREE.MathUtils.randFloatSpread(10));
     b.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,0); group.add(b); }
 
-  // loop
   window.addEventListener('resize', onResize); onResize();
   const clock = new THREE.Clock();
   renderer.setAnimationLoop(()=>{
@@ -217,15 +216,14 @@ function start3D(){
     knot.rotation.x=t*.35; knot.rotation.y=t*.22;
     group.children.forEach((o,idx)=>{ if(o===knot) return; o.position.y += Math.sin(t*.9+idx)*0.0009; o.rotation.y += 0.003*(idx%3?1:-1); });
     updateParallax();
-    if(S.hcp) renderer.render(scene,camera); else effect.render(scene,camera);
+    if(!S.hcp && effect) effect.render(scene,camera); else renderer.render(scene,camera);
   });
   status('3D готово');
 }
-function onResize(){ S.w=app.clientWidth; S.h=app.clientHeight; camera.aspect=S.w/S.h; camera.updateProjectionMatrix(); renderer.setSize(S.w,S.h,false); effect.setSize(S.w,S.h); }
+function onResize(){ S.w=app.clientWidth; S.h=app.clientHeight; camera.aspect=S.w/S.h; camera.updateProjectionMatrix(); renderer.setSize(S.w,S.h,false); if(effect && effect.setSize) effect.setSize(S.w,S.h); }
 
 let _sx=0,_sy=0,_sz=0;
 function updateParallax(){
-  // источник: трекинг лица → мышь
   let nx=.5, ny=.5, dist=1;
   if(S.face.ok){
     nx=clamp(S.face.cx,0,1); ny=clamp(S.face.cy,0,1);
@@ -244,11 +242,18 @@ function updateParallax(){
   camera.lookAt(S.lookAt.x+_sx*0.2,S.lookAt.y+_sy*0.2,S.lookAt.z);
 }
 
-/* ===== FaceMesh tracking (жёсткий запрос камеры из клика) ===== */
-function startFaceMeshTracking(){
+/* ===== Camera + FaceMesh (совместимо с разными глобалами) ===== */
+function startCameraAndTracking(){
+  // Определяем корректные конструкторы
+  const FaceMeshCtor = (window.FaceMesh && window.FaceMesh.FaceMesh) || window.FaceMesh || null;
+  const CameraCtor   = window.Camera || (window.CameraUtils && window.CameraUtils.Camera) || null;
+
+  if(!FaceMeshCtor){
+    showDiag('Не найден FaceMesh (UMD). CDN мог не загрузиться. Обнови страницу/сеть.');
+  }
+
   try{
-    // Настроим FaceMesh: подгрузка моделей из CDN
-    faceMesh = new FaceMesh.FaceMesh({
+    faceMesh = new FaceMeshCtor({
       locateFile: (file)=> `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
     });
     faceMesh.setOptions({
@@ -259,23 +264,31 @@ function startFaceMeshTracking(){
     });
     faceMesh.onResults(onFaceResults);
 
-    // Используем MediaPipe CameraUtils — он сам делает getUserMedia в рамках текущего клика
-    camUtil = new CameraUtils.Camera(video, {
-      onFrame: async () => {
-        if(trackingEnabled){
-          await faceMesh.send({ image: video });
-        }
-      },
-      width: 1280, height: 720
-    });
-
-    // В Safari это запускает СИСТЕМНЫЙ запрос к камере немедленно
-    camUtil.start()
-      .then(()=>{ status('Камера: ок'); if(showDbg.checked) video.style.display='block'; })
-      .catch((err)=>{
-        handleCamError(err);
+    if(CameraCtor){
+      // MediaPipe Camera wrapper — сам вызывает getUserMedia в рамках клика
+      cameraWrapper = new CameraCtor(video, {
+        onFrame: async () => { if(trackingEnabled) await faceMesh.send({ image: video }); },
+        width: 1280, height: 720
       });
-
+      cameraWrapper.start()
+        .then(()=>{ status('Камера: ок'); if(showDbg.checked) video.style.display='block'; })
+        .catch(handleCamError);
+    } else {
+      // Чистый getUserMedia fallback
+      navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} }, audio:false })
+        .then(s=>{
+          stream = s; video.srcObject = s; return video.play();
+        })
+        .then(()=>{
+          status('Камера: ок'); if(showDbg.checked) video.style.display='block';
+          const tick = async ()=>{
+            if(trackingEnabled) await faceMesh.send({ image: video });
+            requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        })
+        .catch(handleCamError);
+    }
   }catch(err){
     handleCamError(err);
   }
@@ -285,13 +298,13 @@ function onFaceResults(results){
   if(!trackingEnabled){ S.face.ok=false; return; }
   if(results && results.multiFaceLandmarks && results.multiFaceLandmarks.length){
     const lm = results.multiFaceLandmarks[0];
-    const L = lm[33], R = lm[263]; // уголки глаз
+    const L = lm[33], R = lm[263];
     if(L && R){
       const cx = (L.x + R.x)/2;
       const cy = (L.y + R.y)/2;
       const d  = Math.hypot(L.x - R.x, L.y - R.y);
       S.face.ok = true;
-      S.face.cx = 1 - cx; // зеркалим
+      S.face.cx = 1 - cx;
       S.face.cy = cy;
       S.face.eye = d;
       S.face.ts = performance.now();
@@ -309,22 +322,18 @@ function onFaceResults(results){
 }
 
 function handleCamError(err){
-  const insideIframe = window.top !== window.self;
-  const secure = window.isSecureContext || location.hostname==='localhost';
-  let msg = 'Камеру получить не удалось.\n' + (err && (err.name||err.message) ? (err.name + ': ' + err.message) : '');
-  msg += '\n• Safari: меню Safari → Settings for This Website… → Camera: Allow';
-  msg += '\n• Или Safari → Settings → Websites → Camera → для твоего домена поставить Allow/Ask';
-  if(insideIframe) msg += '\n• Ты внутри iframe — открой в новой вкладке (GitHub Preview → Open in new tab).';
-  if(!secure) msg += `\n• Нужен HTTPS или localhost. Сейчас: ${location.protocol}//${location.host}`;
-  showDiag(msg, insideIframe);
+  let msg = 'Камеру получить не удалось.\n';
+  if(err){ msg += (err.name||'') + (err.message? (': '+err.message):''); }
+  msg += '\n• Safari: Safari → Settings for This Website… → Camera: Allow';
+  msg += '\n• Или Safari → Settings → Websites → Camera → для домена поставить Allow/Ask';
+  msg += '\n• Если в предпросмотре/iframe — открой в новой вкладке.';
+  showDiag(msg);
   status('Камера недоступна — параллакс по мыши работает');
 }
 
-/* ===== Status helper ===== */
+/* ===== Status & safety ===== */
 let _t; function status(m){ clearTimeout(_t); statusEl.textContent=m; _t=setTimeout(()=>statusEl.textContent='Готово', 4000); }
-
-/* ===== Safety: ловим ошибки, чтобы не было «тишины» ===== */
-window.addEventListener('error', e=> showDiag('JS ошибка: '+(e.message||'')+'\nСмотри консоль.'));
+window.addEventListener('error', e=> showDiag('JS ошибка: '+(e.message||'')));
 window.addEventListener('unhandledrejection', e=> showDiag('Promise отклонён: '+(e.reason && (e.reason.message||e.reason))));
 
 </script>

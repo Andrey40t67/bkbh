@@ -1,1030 +1,339 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HandTrack Pro - Жестовое управление + Body Tracking</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="utf-8" />
+<title>HandTrack Pro — жестовое управление</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<style>
+  :root{ --bg:#0b111b; --panel:#0f1520; --line:#ffffff22; --txt:#e8eef7; --acc:#86c9ff; --ok:#6ee7a8; --warn:#ffd479; }
+  *{ box-sizing:border-box }
+  html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt);
+    font:14px/1.35 Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif }
+  #app{ position:fixed; inset:0; overflow:hidden }
+  canvas#view{ position:absolute; inset:0; width:100%; height:100%; display:block;
+    background:radial-gradient(1100px 700px at 50% 40%, #0c1627, #0b111b) }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            color: white;
-            overflow: hidden;
-            height: 100vh;
-            cursor: none;
-        }
+  /* UI */
+  #ui{ position:absolute; left:12px; right:12px; top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+       z-index:30; background:#0d1421cc; border:1px solid var(--line); border-radius:14px; padding:10px; backdrop-filter:blur(8px) }
+  .btn, select, input[type=range]{ appearance:none; border:1px solid var(--line); background:#ffffff12; color:var(--txt);
+       padding:8px 12px; border-radius:12px; font-weight:700; cursor:pointer }
+  .btn:active{ transform:translateY(1px) }
+  label{ display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--line); border-radius:12px; background:#ffffff10 }
+  #status{ margin-left:auto; font-size:12px; opacity:.9 }
 
-        #container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-        }
+  /* Splash */
+  #splash{ position:absolute; inset:0; display:grid; place-items:center; z-index:50;
+    background:radial-gradient(900px 640px at 50% 30%, #ffffff12, #00000088 60%, #000) }
+  .logo{ text-align:center }
+  .made{ font-size:13px; letter-spacing:.22em; opacity:.72 }
+  .name{ font-size:42px; font-weight:900; letter-spacing:.02em;
+         background:linear-gradient(90deg,#78b6ff,#baf0ff,#78b6ff);
+         -webkit-background-clip:text; background-clip:text; color:transparent;
+         filter:drop-shadow(0 8px 32px #66aaff30); animation:shine 3s ease-in-out infinite }
+  .sub{ margin-top:6px; opacity:.9 }
+  .start{ margin-top:18px; padding:12px 18px; font-size:16px; border-radius:14px; border:1px solid #6dbaff80; background:#6dbaff20; cursor:pointer }
+  @keyframes shine{ 0%,100%{letter-spacing:.02em} 50%{letter-spacing:.06em} }
+  .fade-out{ animation:fadeout .6s ease forwards } @keyframes fadeout{ to{ opacity:0; visibility:hidden } }
 
-        #gameCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.1);
-        }
+  /* Debug + cursor */
+  #video,#dbg{ position:absolute; right:12px; bottom:12px; width:240px; height:auto; border-radius:12px; border:1px solid var(--line); display:none; z-index:40; background:#000 }
+  #dbg{ right:264px }
+  #diag{ position:fixed; left:12px; right:12px; top:12px; z-index:9999; padding:10px 12px; border-radius:12px;
+         background:#2a0b0b; color:#ffd9d9; border:1px solid #ff6b6b; font:600 13px/1.3 system-ui; white-space:pre-wrap; display:none }
+  #cursor{ position:absolute; width:24px; height:24px; border-radius:50%; border:2px solid var(--acc);
+           box-shadow:0 0 18px #86c9ff60; pointer-events:none; z-index:35; transform:translate(-50%,-50%) }
+  #cursor.pinching{ background:var(--acc) }
+  .ripple{ position:absolute; pointer-events:none; width:12px; height:12px; border-radius:999px; border:2px solid var(--acc); opacity:.9;
+           transform:translate(-50%,-50%); animation:rip .5s ease-out both; z-index:34 }
+  @keyframes rip{ from{ opacity:1; width:6px; height:6px } to{ opacity:0; width:80px; height:80px } }
 
-        #videoContainer {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 180px;
-            height: 135px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 10px;
-            overflow: hidden;
-            display: none;
-            z-index: 50;
-        }
-
-        #video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-        }
-
-        #startScreen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            padding: 40px;
-            border-radius: 20px;
-            text-align: center;
-            backdrop-filter: blur(15px);
-            z-index: 100;
-        }
-
-        #gameMenu {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            padding: 30px;
-            border-radius: 20px;
-            backdrop-filter: blur(15px);
-            z-index: 100;
-            display: none;
-        }
-
-        .menu-item {
-            display: block;
-            width: 350px;
-            margin: 15px auto;
-            padding: 20px;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            border: none;
-            border-radius: 15px;
-            color: white;
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            text-align: center;
-        }
-
-        .menu-item:hover, .menu-item.selected {
-            transform: scale(1.05);
-            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
-            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
-        }
-
-        .start-button {
-            background: linear-gradient(45deg, #00d2ff, #3a7bd5);
-            font-size: 24px;
-            padding: 20px 50px;
-            margin: 20px;
-        }
-
-        #cursor {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.8);
-            border: 4px solid #00d2ff;
-            pointer-events: none;
-            z-index: 1000;
-            transition: all 0.05s ease;
-            box-shadow: 0 0 20px rgba(0, 210, 255, 0.5);
-        }
-
-        #cursor.pinching {
-            background: #ff6b6b;
-            border-color: #ff4757;
-            transform: scale(1.5);
-            box-shadow: 0 0 30px rgba(255, 107, 107, 0.8);
-        }
-
-        #stats {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
-            border-radius: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            z-index: 90;
-        }
-
-        #backButton {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            padding: 15px 25px;
-            border-radius: 30px;
-            color: white;
-            cursor: pointer;
-            font-size: 16px;
-            display: none;
-            z-index: 90;
-        }
-
-        #gameInfo {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px 30px;
-            border-radius: 25px;
-            text-align: center;
-            font-size: 18px;
-            z-index: 80;
-        }
-
-        .ripple {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(0, 210, 255, 0.6);
-            transform: scale(0);
-            animation: ripple-animation 0.6s ease-out;
-            pointer-events: none;
-            z-index: 500;
-        }
-
-        @keyframes ripple-animation {
-            to {
-                transform: scale(8);
-                opacity: 0;
-            }
-        }
-
-        .body-point {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #00ff00;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 60;
-        }
-
-        .connection-line {
-            position: absolute;
-            height: 2px;
-            background: rgba(0, 255, 0, 0.7);
-            transform-origin: left center;
-            pointer-events: none;
-            z-index: 55;
-        }
-
-        .particle {
-            position: absolute;
-            width: 6px;
-            height: 6px;
-            background: white;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 70;
-        }
-
-        #loadingText {
-            margin-top: 20px;
-            font-size: 16px;
-            color: #ccc;
-        }
-    </style>
+  /* FPS pill + log */
+  #fps{ position:absolute; left:12px; bottom:12px; z-index:40; font:600 12px system-ui; opacity:.85;
+        background:#0d1421cc; border:1px solid var(--line); padding:6px 8px; border-radius:10px }
+  #log{ position:absolute; right:12px; top:12px; width:min(420px, 90vw); max-height:42vh; overflow:auto;
+        font:12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#0d1421cc;
+        border:1px solid var(--line); border-radius:12px; padding:8px 10px; white-space:pre-wrap; z-index:60 }
+  #log b{ color:#bff }
+  @media (max-width:720px){ .name{font-size:30px} #video,#dbg{display:none!important} #log{display:none} }
+</style>
 </head>
 <body>
-    <div id="container">
-        <canvas id="gameCanvas"></canvas>
-        
-        <div id="videoContainer">
-            <video id="video" autoplay muted playsinline></video>
-        </div>
+<div id="app">
+  <canvas id="view"></canvas>
 
-        <div id="startScreen">
-            <h1>🚀 HandTrack Pro + Body Games</h1>
-            <p>Управляй жестами руки и всем телом!</p>
-            <button class="start-button" onclick="initSystems()">🎮 Запустить</button>
-            <div id="loadingText"></div>
-        </div>
+  <div id="ui" hidden>
+    <button id="btnBack" class="btn">⟵ Меню</button>
+    <button id="btnStart" class="btn">Запустить камеру</button>
+    <label>Зеркало X <input type="checkbox" id="mirrorX" checked></label>
+    <label>Сглаживание <input id="smooth" type="range" min="0" max="95" value="65"></label>
+    <label>Чувств. пинча <input id="pinch" type="range" min="20" max="200" value="90"></label>
+    <label>Качество
+      <select id="quality">
+        <option value="fast" selected>Быстро</option>
+        <option value="balanced">Сбаланс.</option>
+        <option value="quality">Качество</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="showDbg"> Отладка</label>
+    <div id="status">Готово</div>
+  </div>
 
-        <div id="gameMenu">
-            <h2>🎯 Выбери игру пинчем:</h2>
-            <div class="menu-item" data-game="breakout">🏓 Арканоид (рука)</div>
-            <div class="menu-item" data-game="shooter">🎯 Космо-шутер (рука)</div>
-            <div class="menu-item" data-game="snake">🐍 Змейка (рука)</div>
-            <div class="menu-item" data-game="bubbles">🫧 Пузыри (рука)</div>
-            <div class="menu-item" data-game="draw">🎨 Рисование (рука)</div>
-            <div class="menu-item" data-game="body-dodge">🤸 Уклонение телом (тело)</div>
-            <div class="menu-item" data-game="body-dance">💃 Танцевальная игра (тело)</div>
-        </div>
-
-        <button id="backButton" onclick="showMenu()">← Назад в меню</button>
-
-        <div id="stats">
-            FPS: <span id="fps">0</span><br>
-            Рука: <span id="handStatus">⏳</span><br>
-            Тело: <span id="bodyStatus">⏳</span><br>
-            Пинч: <span id="pinchStatus">❌</span>
-        </div>
-
-        <div id="gameInfo"></div>
-        <div id="cursor"></div>
+  <div id="splash">
+    <div class="logo">
+      <div class="made">СОЗДАНО</div>
+      <div class="name">АНДРЕЕМ</div>
+      <div class="sub">жест «пинч» = клик. старт неубиваемый</div>
+      <a id="startBtn" class="start" href="#go">НАЧАТЬ</a>
+      <div id="bootMark" style="margin-top:6px;font-size:12px;opacity:.7">JS не запущен</div>
     </div>
-
-    <!-- Подключаем библиотеки -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.15.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-
-    <script>
-        // === ГЛОБАЛЬНЫЕ ПЕРЕМЕНЫ ===
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const video = document.getElementById('video');
-        const cursor = document.getElementById('cursor');
-        const startScreen = document.getElementById('startScreen');
-        const gameMenu = document.getElementById('gameMenu');
-        const backButton = document.getElementById('backButton');
-        const gameInfo = document.getElementById('gameInfo');
-        const videoContainer = document.getElementById('videoContainer');
-
-        let hands, camera, poseNet;
-        let currentGame = null;
-        let gameState = 'start';
-        let handData = null;
-        let bodyData = null;
-        let isPinching = false;
-        let lastPinchState = false;
-        let selectedMenuItem = 0;
-        let menuItems = [];
-
-        // === ОПТИМИЗАЦИЯ FPS ===
-        let frameCount = 0;
-        let lastTime = performance.now();
-        let lastHandUpdate = 0;
-        let lastBodyUpdate = 0;
-        const HAND_UPDATE_INTERVAL = 16; // ~60 FPS
-        const BODY_UPDATE_INTERVAL = 33; // ~30 FPS
-        
-        // === РАЗМЕРЫ КАНВАСА ===
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        // === ИНИЦИАЛИЗАЦИЯ СИСТЕМ ===
-        async function initSystems() {
-            try {
-                document.querySelector('.start-button').style.display = 'none';
-                const loadingText = document.getElementById('loadingText');
-                
-                loadingText.textContent = '📷 Запуск камеры...';
-                await initCamera();
-                
-                loadingText.textContent = '👋 Инициализация трекинга рук...';
-                await initHandTracking();
-                
-                loadingText.textContent = '🏃 Загрузка PoseNet...';
-                await initBodyTracking();
-                
-                loadingText.textContent = '✅ Готово!';
-                
-                setTimeout(() => {
-                    startScreen.style.display = 'none';
-                    showMenu();
-                }, 500);
-
-            } catch (error) {
-                console.error('Ошибка инициализации:', error);
-                document.getElementById('loadingText').textContent = '❌ Ошибка: ' + error.message;
-            }
-        }
-
-        // === ИНИЦИАЛИЗАЦИЯ КАМЕРЫ ===
-        async function initCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        frameRate: { ideal: 60 }
-                    },
-                    audio: false
-                });
-                
-                video.srcObject = stream;
-                await new Promise(resolve => {
-                    video.onloadedmetadata = resolve;
-                });
-                await video.play();
-                videoContainer.style.display = 'block';
-
-            } catch (error) {
-                throw new Error('Не удалось получить доступ к камере');
-            }
-        }
-
-        // === ТРЕКИНГ РУК ===
-        async function initHandTracking() {
-            hands = new Hands({
-                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-            });
-
-            hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 0, // Быстрая модель для 60 FPS
-                minDetectionConfidence: 0.7,
-                minTrackingConfidence: 0.5
-            });
-
-            hands.onResults(onHandResults);
-
-            camera = new Camera(video, {
-                onFrame: async () => {
-                    const now = performance.now();
-                    if (now - lastHandUpdate > HAND_UPDATE_INTERVAL) {
-                        await hands.send({ image: video });
-                        lastHandUpdate = now;
-                        updateFPS();
-                    }
-                },
-                width: 640,
-                height: 480
-            });
-
-            await camera.start();
-        }
-
-        // === ТРЕКИНГ ТЕЛА ===
-        async function initBodyTracking() {
-            poseNet = await posenet.load({
-                architecture: 'MobileNetV1',
-                outputStride: 16,
-                inputResolution: { width: 320, height: 240 }, // Низкое разрешение для скорости
-                multiplier: 0.5 // Быстрая модель
-            });
-
-            // Запуск трекинга тела
-            setInterval(async () => {
-                if (video.readyState >= 2) {
-                    const now = performance.now();
-                    if (now - lastBodyUpdate > BODY_UPDATE_INTERVAL) {
-                        try {
-                            const pose = await poseNet.estimateSinglePose(video, {
-                                flipHorizontal: true
-                            });
-                            onBodyResults(pose);
-                            lastBodyUpdate = now;
-                        } catch (err) {
-                            console.warn('Body tracking error:', err);
-                        }
-                    }
-                }
-            }, BODY_UPDATE_INTERVAL);
-        }
-
-        // === ОБРАБОТКА ДАННЫХ РУКИ ===
-        function onHandResults(results) {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                processHandData(landmarks);
-                document.getElementById('handStatus').textContent = '✅';
-            } else {
-                handData = null;
-                isPinching = false;
-                document.getElementById('handStatus').textContent = '❌';
-                document.getElementById('pinchStatus').textContent = '❌';
-            }
-        }
-
-        // === УЛУЧШЕННАЯ ОБРАБОТКА ПИНЧА ===
-        function processHandData(landmarks) {
-            const indexTip = landmarks[8];
-            const thumbTip = landmarks[11];
-            const indexMcp = landmarks[12];
-            const thumbMcp = landmarks[13];
-
-            // Зеркальная позиция (инвертируем X)
-            const x = (1 - indexTip.x) * canvas.width;
-            const y = indexTip.y * canvas.height;
-
-            // УЛУЧШЕННОЕ ОПРЕДЕЛЕНИЕ ПИНЧА
-            const distance3D = Math.sqrt(
-                Math.pow(indexTip.x - thumbTip.x, 2) +
-                Math.pow(indexTip.y - thumbTip.y, 2) +
-                Math.pow((indexTip.z || 0) - (thumbTip.z || 0), 2)
-            );
-
-            // Расстояние между основаниями для нормализации
-            const palmSize = Math.sqrt(
-                Math.pow(indexMcp.x - thumbMcp.x, 2) +
-                Math.pow(indexMcp.y - thumbMcp.y, 2)
-            );
-
-            // Нормализованное расстояние
-            const normalizedDistance = distance3D / (palmSize + 0.01);
-
-            lastPinchState = isPinching;
-            isPinching = normalizedDistance < 0.6; // Более чувствительный порог
-
-            handData = {
-                x: x,
-                y: y,
-                isPinching: isPinching,
-                justPinched: isPinching && !lastPinchState,
-                justReleased: !isPinching && lastPinchState,
-                landmarks: landmarks,
-                confidence: results.multiHandLandmarks ? 1 : 0
-            };
-
-            // Обновление курсора
-            cursor.style.left = (x - 15) + 'px';
-            cursor.style.top = (y - 15) + 'px';
-            cursor.className = isPinching ? 'pinching' : '';
-
-            document.getElementById('pinchStatus').textContent = isPinching ? '✅' : '❌';
-
-            // Эффект пинча
-            if (handData.justPinched) {
-                createRipple(x, y);
-                handleMenuInteraction();
-            }
-        }
-
-        // === ОБРАБОТКА ДАННЫХ ТЕЛА ===
-        function onBodyResults(pose) {
-            if (pose && pose.score > 0.3) {
-                bodyData = {
-                    keypoints: pose.keypoints,
-                    score: pose.score
-                };
-                document.getElementById('bodyStatus').textContent = '✅';
-                
-                if (gameState === 'playing' && (currentGame instanceof BodyDodgeGame || currentGame instanceof BodyDanceGame)) {
-                    drawBodyPoints(pose.keypoints);
-                }
-            } else {
-                bodyData = null;
-                document.getElementById('bodyStatus').textContent = '❌';
-            }
-        }
-
-        // === ОТРИСОВКА ТОЧЕК ТЕЛА ===
-        function drawBodyPoints(keypoints) {
-            // Очищаем старые точки
-            document.querySelectorAll('.body-point, .connection-line').forEach(el => el.remove());
-
-            const connections = [
-                [5, 6], [5, 7], [7, 9], [6, 8], [8, 10], // Руки
-                [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], // Ноги
-                [5, 11], [6, 12] // Туловище
-            ];
-
-            // Отрисовка соединений
-            connections.forEach(([i, j]) => {
-                const pointA = keypoints[i];
-                const pointB = keypoints[j];
-                
-                if (pointA.score > 0.5 && pointB.score > 0.5) {
-                    const line = document.createElement('div');
-                    line.className = 'connection-line';
-                    
-                    const x1 = (1 - pointA.position.x / video.videoWidth) * canvas.width;
-                    const y1 = (pointA.position.y / video.videoHeight) * canvas.height;
-                    const x2 = (1 - pointB.position.x / video.videoWidth) * canvas.width;
-                    const y2 = (pointB.position.y / video.videoHeight) * canvas.height;
-                    
-                    const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-                    const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
-                    
-                    line.style.left = x1 + 'px';
-                    line.style.top = y1 + 'px';
-                    line.style.width = length + 'px';
-                    line.style.transform = `rotate(${angle}deg)`;
-                    
-                    document.body.appendChild(line);
-                }
-            });
-
-            // Отрисовка точек
-            keypoints.forEach((keypoint, index) => {
-                if (keypoint.score > 0.5) {
-                    const point = document.createElement('div');
-                    point.className = 'body-point';
-                    
-                    const x = (1 - keypoint.position.x / video.videoWidth) * canvas.width;
-                    const y = (keypoint.position.y / video.videoHeight) * canvas.height;
-                    
-                    point.style.left = (x - 4) + 'px';
-                    point.style.top = (y - 4) + 'px';
-                    
-                    document.body.appendChild(point);
-                }
-            });
-        }
-
-        // === НАВИГАЦИЯ ПО МЕНЮ ===
-        function handleMenuInteraction() {
-            if (gameState === 'menu') {
-                const items = document.querySelectorAll('.menu-item');
-                if (items.length === 0) return;
-
-                // Проверяем, на какой элемент нажали
-                let clickedIndex = -1;
-                items.forEach((item, index) => {
-                    const rect = item.getBoundingClientRect();
-                    if (handData.x >= rect.left && handData.x <= rect.right &&
-                        handData.y >= rect.top && handData.y <= rect.bottom) {
-                        clickedIndex = index;
-                    }
-                });
-
-                if (clickedIndex >= 0) {
-                    const gameType = items[clickedIndex].dataset.game;
-                    startGame(gameType);
-                }
-            }
-        }
-
-        // === ПОКАЗ МЕНЮ ===
-        function showMenu() {
-            gameState = 'menu';
-            gameMenu.style.display = 'block';
-            backButton.style.display = 'none';
-            gameInfo.style.display = 'none';
-            currentGame = null;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Очищаем точки тела
-            document.querySelectorAll('.body-point, .connection-line').forEach(el => el.remove());
-        }
-
-        // === ЗАПУСК ИГРЫ ===
-        function startGame(gameType) {
-            gameState = 'playing';
-            gameMenu.style.display = 'none';
-            backButton.style.display = 'block';
-            gameInfo.style.display = 'block';
-
-            switch(gameType) {
-                case 'breakout':
-                    currentGame = new BreakoutGame();
-                    break;
-                case 'shooter':
-                    currentGame = new ShooterGame();
-                    break;
-                case 'snake':
-                    currentGame = new SnakeGame();
-                    break;
-                case 'bubbles':
-                    currentGame = new BubbleGame();
-                    break;
-                case 'draw':
-                    currentGame = new DrawGame();
-                    break;
-                case 'body-dodge':
-                    currentGame = new BodyDodgeGame();
-                    break;
-                case 'body-dance':
-                    currentGame = new BodyDanceGame();
-                    break;
-            }
-        }
-
-        // === ЭФФЕКТЫ ===
-        function createRipple(x, y) {
-            const ripple = document.createElement('div');
-            ripple.className = 'ripple';
-            ripple.style.left = (x - 10) + 'px';
-            ripple.style.top = (y - 10) + 'px';
-            ripple.style.width = '20px';
-            ripple.style.height = '20px';
-            document.body.appendChild(ripple);
-            setTimeout(() => ripple.remove(), 600);
-        }
-
-        function updateFPS() {
-            frameCount++;
-            const now = performance.now();
-            if (now - lastTime >= 1000) {
-                document.getElementById('fps').textContent = frameCount;
-                frameCount = 0;
-                lastTime = now;
-            }
-        }
-
-        // ==================== ИГРЫ ====================
-
-        // === ИГРА 6: УКЛОНЕНИЕ ТЕЛОМ ===
-        class BodyDodgeGame {
-            constructor() {
-                this.obstacles = [];
-                this.score = 0;
-                this.lastObstacle = 0;
-                this.playerHitbox = { x: canvas.width/2, y: canvas.height/2, radius: 50 };
-            }
-
-            update() {
-                const now = Date.now();
-                
-                // Управление игроком через позицию тела
-                if (bodyData && bodyData.keypoints) {
-                    const nose = bodyData.keypoints.find(kp => kp.part === 'nose');
-                    if (nose && nose.score > 0.5) {
-                        this.playerHitbox.x = (1 - nose.position.x / video.videoWidth) * canvas.width;
-                        this.playerHitbox.y = (nose.position.y / video.videoHeight) * canvas.height;
-                    }
-                }
-
-                // Создание препятствий
-                if (now - this.lastObstacle > 800) {
-                    this.obstacles.push({
-                        x: Math.random() * canvas.width,
-                        y: -50,
-                        radius: 30 + Math.random() * 20,
-                        speed: 3 + Math.random() * 4,
-                        color: `hsl(${Math.random() * 360}, 70%, 50%)`
-                    });
-                    this.lastObstacle = now;
-                }
-
-                // Движение препятствий
-                this.obstacles = this.obstacles.filter(obs => {
-                    obs.y += obs.speed;
-                    
-                    // Проверка столкновения с игроком
-                    const dist = Math.sqrt(
-                        Math.pow(obs.x - this.playerHitbox.x, 2) + 
-                        Math.pow(obs.y - this.playerHitbox.y, 2)
-                    );
-                    
-                    if (dist < obs.radius + this.playerHitbox.radius) {
-                        this.gameOver();
-                        return false;
-                    }
-                    
-                    if (obs.y > canvas.height + 100) {
-                        this.score += 10;
-                        return false;
-                    }
-                    
-                    return true;
-                });
-            }
-
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Фон
-                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                gradient.addColorStop(0, '#1e3c72');
-                gradient.addColorStop(1, '#2a5298');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Препятствия
-                this.obstacles.forEach(obs => {
-                    ctx.fillStyle = obs.color;
-                    ctx.beginPath();
-                    ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Тень препятствия
-                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-                    ctx.beginPath();
-                    ctx.arc(obs.x + 5, obs.y + 5, obs.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-
-                // Игрок (хитбокс)
-                ctx.strokeStyle = '#00ff00';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(this.playerHitbox.x, this.playerHitbox.y, this.playerHitbox.radius, 0, Math.PI * 2);
-                ctx.stroke();
-
-                gameInfo.innerHTML = `🤸 Очки: ${this.score} | Уворачивайся телом от препятствий!`;
-            }
-
-            gameOver() {
-                alert(`🤸 Игра окончена! Очки: ${this.score}`);
-                showMenu();
-            }
-        }
-
-        // === ИГРА 7: ТАНЦЕВАЛЬНАЯ ИГРА ===
-        class BodyDanceGame {
-            constructor() {
-                this.targets = [];
-                this.score = 0;
-                this.lastTarget = 0;
-                this.bodyParts = ['leftWrist', 'rightWrist', 'leftAnkle', 'rightAnkle', 'nose'];
-                this.hitEffects = [];
-            }
-
-            update() {
-                const now = Date.now();
-
-                // Создание целей для касания
-                if (now - this.lastTarget > 2000) {
-                    const randomPart = this.bodyParts[Math.floor(Math.random() * this.bodyParts.length)];
-                    this.targets.push({
-                        bodyPart: randomPart,
-                        x: 200 + Math.random() * (canvas.width - 400),
-                        y: 150 + Math.random() * (canvas.height - 300),
-                        radius: 60,
-                        life: 3000,
-                        color: `hsl(${Math.random() * 360}, 80%, 60%)`
-                    });
-                    this.lastTarget = now;
-                }
-
-                // Проверка попаданий
-                if (bodyData && bodyData.keypoints) {
-                    this.targets = this.targets.filter(target => {
-                        const bodyPoint = bodyData.keypoints.find(kp => kp.part === target.bodyPart);
-                        
-                        if (bodyPoint && bodyPoint.score > 0.5) {
-                            const bodyX = (1 - bodyPoint.position.x / video.videoWidth) * canvas.width;
-                            const bodyY = (bodyPoint.position.y / video.videoHeight) * canvas.height;
-                            
-                            const dist = Math.sqrt(
-                                Math.pow(bodyX - target.x, 2) + 
-                                Math.pow(bodyY - target.y, 2)
-                            );
-                            
-                            if (dist < target.radius) {
-                                this.score += 50;
-                                this.createHitEffect(target.x, target.y, target.color);
-                                return false;
-                            }
-                        }
-                        
-                        target.life -= 16;
-                        return target.life > 0;
-                    });
-                }
-
-                // Обновление эффектов попаданий
-                this.hitEffects = this.hitEffects.filter(effect => {
-                    effect.life -= 16;
-                    effect.radius += 2;
-                    effect.opacity = effect.life / 500;
-                    return effect.life > 0;
-                });
-            }
-
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Красивый фон
-                const gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, canvas.width);
-                gradient.addColorStop(0, '#667eea');
-                gradient.addColorStop(1, '#764ba2');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Цели
-                this.targets.forEach(target => {
-                    const alpha = target.life / 3000;
-                    
-                    // Внешний круг
-                    ctx.globalAlpha = alpha * 0.3;
-                    ctx.fillStyle = target.color;
-                    ctx.beginPath();
-                    ctx.arc(target.x, target.y, target.radius + 10, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Основной круг
-                    ctx.globalAlpha = alpha;
-                    ctx.fillStyle = target.color;
-                    ctx.beginPath();
-                    ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Название части тела
-                    ctx.globalAlpha = 1;
-                    ctx.fillStyle = 'white';
-                    ctx.font = '16px Arial';
-                    ctx.textAlign = 'center';
-                    const partName = {
-                        'leftWrist': 'Левая рука',
-                        'rightWrist': 'Правая рука',
-                        'leftAnkle': 'Левая нога',
-                        'rightAnkle': 'Правая нога',
-                        'nose': 'Голова'
-                    }[target.bodyPart];
-                    ctx.fillText(partName, target.x, target.y + 5);
-                });
-
-                // Эффекты попаданий
-                this.hitEffects.forEach(effect => {
-                    ctx.globalAlpha = effect.opacity;
-                    ctx.strokeStyle = effect.color;
-                    ctx.lineWidth = 4;
-                    ctx.beginPath();
-                    ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
-                    ctx.stroke();
-                });
-
-                ctx.globalAlpha = 1;
-                gameInfo.innerHTML = `💃 Очки: ${this.score} | Коснись цели нужной частью тела!`;
-            }
-
-            createHitEffect(x, y, color) {
-                this.hitEffects.push({
-                    x: x,
-                    y: y,
-                    radius: 30,
-                    life: 500,
-                    opacity: 1,
-                    color: color
-                });
-            }
-        }
-
-        // === ОСТАЛЬНЫЕ ИГРЫ (упрощенные версии) ===
-        class BreakoutGame {
-            constructor() {
-                this.paddle = { x: canvas.width/2, y: canvas.height - 50, width: 120, height: 20 };
-                this.ball = { x: canvas.width/2, y: canvas.height/2, dx: 5, dy: -5, radius: 10 };
-                this.bricks = [];
-                this.score = 0;
-
-                // Создание кирпичей (оптимизированное)
-                for(let row = 0; row < 4; row++) {
-                    for(let col = 0; col < 8; col++) {
-                        this.bricks.push({
-                            x: col * 100 + 100,
-                            y: row * 40 + 80,
-                            width: 90,
-                            height: 30,
-                            destroyed: false,
-                            color: `hsl(${row * 90}, 70%, 60%)`
-                        });
-                    }
-                }
-            }
-
-            update() {
-                if (!handData) return;
-
-                this.paddle.x = handData.x - this.paddle.width / 2;
-                
-                this.ball.x += this.ball.dx;
-                this.ball.y += this.ball.dy;
-
-                if (this.ball.x < 0 || this.ball.x > canvas.width) this.ball.dx = -this.ball.dx;
-                if (this.ball.y < 0) this.ball.dy = -this.ball.dy;
-
-                if (this.ball.y > this.paddle.y - this.ball.radius &&
-                    this.ball.x > this.paddle.x &&
-                    this.ball.x < this.paddle.x + this.paddle.width) {
-                    this.ball.dy = -Math.abs(this.ball.dy);
-                    const hitPos = (this.ball.x - this.paddle.x) / this.paddle.width;
-                    this.ball.dx = (hitPos - 0.5) * 10;
-                }
-
-                this.bricks.forEach(brick => {
-                    if (!brick.destroyed &&
-                        this.ball.x > brick.x &&
-                        this.ball.x < brick.x + brick.width &&
-                        this.ball.y > brick.y &&
-                        this.ball.y < brick.y + brick.height) {
-                        
-                        brick.destroyed = true;
-                        this.ball.dy = -this.ball.dy;
-                        this.score += 10;
-                        createRipple(brick.x + brick.width/2, brick.y + brick.height/2);
-                    }
-                });
-
-                if (this.ball.y > canvas.height) {
-                    alert(`🏓 Игра окончена! Очки: ${this.score}`);
-                    showMenu();
-                }
-            }
-
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                this.bricks.forEach(brick => {
-                    if (!brick.destroyed) {
-                        ctx.fillStyle = brick.color;
-                        ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-                    }
-                });
-
-                ctx.fillStyle = '#00d2ff';
-                ctx.fillRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
-
-                ctx.fillStyle = '#fff';
-                ctx.beginPath();
-                ctx.arc(this.ball.x, this.ball.y, this.ball.radius, 0, Math.PI * 2);
-                ctx.fill();
-
-                gameInfo.innerHTML = `🏓 Очки: ${this.score} | Управляй рукой!`;
-            }
-        }
-
-        // Добавлю заглушки для остальных игр
-        class ShooterGame {
-            constructor() { this.score = 0; }
-            update() {}
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#fff';
-                ctx.font = '30px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('🎯 Космо-шутер', canvas.width/2, canvas.height/2);
-                gameInfo.innerHTML = 'Игра в разработке...';
-            }
-        }
-
-        class SnakeGame {
-            constructor() { this.score = 0; }
-            update() {}
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#fff';
-                ctx.font = '30px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('🐍 Змейка', canvas.width/2, canvas.height/2);
-                gameInfo.innerHTML = 'Игра в разработке...';
-            }
-        }
-
-        class BubbleGame {
-            constructor() { this.score = 0; }
-            update() {}
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#fff';
-                ctx.font = '30px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('🫧 Пузыри', canvas.width/2, canvas.height/2);
-                gameInfo.innerHTML = 'Игра в разработке...';
-            }
-        }
-
-        class DrawGame {
-            constructor() { this.score = 0; }
-            update() {}
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#fff';
-                ctx.font = '30px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('🎨 Рисование', canvas.width/2, canvas.height/2);
-                gameInfo.innerHTML = 'Игра в разработке...';
-            }
-        }
-
-        // === ОСНОВНОЙ ИГРОВОЙ ЦИКЛ ===
-        function gameLoop() {
-            requestAnimationFrame(gameLoop);
-            
-            if (gameState === 'playing' && currentGame) {
-                currentGame.update();
-                currentGame.render();
-            }
-        }
-
-        gameLoop();
-    </script>
+  </div>
+
+  <div id="menu" hidden>
+    <div style="display:grid;place-items:center;width:100%;height:100%;opacity:.85">Наведи курсор и щипни, чтобы начать игру</div>
+  </div>
+
+  <div id="cursor"></div>
+  <div id="fps">render: — fps • track: — fps</div>
+
+  <pre id="log"></pre>
+
+  <video id="video" playsinline muted></video>
+  <canvas id="dbg" width="240" height="160"></canvas>
+  <div id="diag"></div>
+</div>
+
+<script>'use strict'; (function(){const m=document.getElementById('bootMark'); if(m) m.textContent='JS запущен ✓';})();</script>
+
+<script>
+'use strict';
+
+/* ===== Elements ===== */
+const app = document.getElementById('app');
+const canvas = document.getElementById('view');
+const ctx = canvas.getContext('2d');
+const ui = document.getElementById('ui');
+const startBtn = document.getElementById('startBtn');
+const splash = document.getElementById('splash');
+const menu = document.getElementById('menu');
+const btnBack = document.getElementById('btnBack');
+const btnStart = document.getElementById('btnStart');
+const mirrorX = document.getElementById('mirrorX');
+const smoothRange = document.getElementById('smooth');
+const pinchRange = document.getElementById('pinch');
+const qualitySel = document.getElementById('quality');
+const showDbg = document.getElementById('showDbg');
+const statusEl = document.getElementById('status');
+const video = document.getElementById('video');
+const dbg = document.getElementById('dbg');
+const dbgCtx = dbg.getContext('2d');
+const diag = document.getElementById('diag');
+const cursor = document.getElementById('cursor');
+const fpsEl = document.getElementById('fps');
+const logEl = document.getElementById('log');
+
+/* ===== State ===== */
+let W=0,H=0, DPR=Math.min(window.devicePixelRatio||1, 2);
+let lastT=performance.now();
+let renderFPS=0, trackFPS=0; let rfCount=0, trCount=0, lastRF=performance.now(), lastTR=performance.now();
+const pointer = { x:.5, y:.5, rawX:.5, rawY:.5, pinch:false, pinchDown:false, pinchUp:false };
+let hands=null, started=false;
+
+/* ===== Utils ===== */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+function log(m){ logEl.textContent += (m+'\n'); logEl.scrollTop = logEl.scrollHeight; }
+function status(m){ statusEl.textContent=m; log('<b>STATUS:</b> '+m); }
+function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; log('<b>ERROR:</b> '+msg); }
+
+function resize(){
+  W=app.clientWidth; H=app.clientHeight;
+  canvas.width=W*DPR; canvas.height=H*DPR; canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  log('<b>resize</b>: '+W+'x'+H);
+}
+window.addEventListener('resize', resize);
+
+/* ===== HUD ===== */
+function drawHUD(topText, bottomText){
+  ctx.save();
+  ctx.fillStyle='#e8eef7';
+  ctx.font='16px Inter, system-ui, sans-serif';
+  ctx.textBaseline='top';
+  ctx.fillText(topText, 16, 16);
+  ctx.font='12px Inter, system-ui, sans-serif';
+  ctx.textBaseline='bottom';
+  ctx.fillText(bottomText, 16, H-16);
+  ctx.restore();
+}
+
+/* ===== Unstoppable start ===== */
+function start(){
+  if(started) return; started=true; log('<b>START</b>');
+  splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 550);
+  ui.hidden=false; menu.hidden=false; resize(); status('Меню готово');
+}
+window.addEventListener('load', ()=> setTimeout(start, 300));
+startBtn.addEventListener('click', ()=>{ log('<b>click:</b> НАЧАТЬ'); /* hashchange will fire */ });
+window.addEventListener('hashchange', ()=>{ if(location.hash==="#go") start(); });
+if(location.hash==="#go") start();
+['pointerdown','keydown'].forEach(ev=> document.addEventListener(ev, ()=>start(), {once:true,capture:true}));
+
+btnBack.addEventListener('click', ()=>{ menu.hidden=false; log('<b>click:</b> Меню'); });
+btnStart.addEventListener('click', startCamera);
+showDbg.addEventListener('change', ()=>{ const v=showDbg.checked; video.style.display=dbg.style.display=v?'block':'none'; });
+
+/* ===== Pointer fallback (mouse) ===== */
+app.addEventListener('pointermove', (e)=>{
+  const r=app.getBoundingClientRect();
+  pointer.rawX=(e.clientX-r.left)/r.width; pointer.rawY=(e.clientY-r.top)/r.height;
+});
+app.addEventListener('pointerdown', ()=>{
+  pointer.pinch=true; pointer.pinchDown=true;
+  addRipple(pointer.x*W, pointer.y*H);
+  setTimeout(()=>{ pointer.pinch=false; pointer.pinchUp=true; }, 120);
+});
+
+/* ===== Dynamic loader for MediaPipe (load on button click) ===== */
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script'); s.src=src; s.async=true;
+    s.onload=()=>{ log('loaded: '+src); res(); };
+    s.onerror=()=>{ log('FAIL load: '+src); rej(new Error('Не загрузился '+src)); };
+    document.head.appendChild(s);
+  });
+}
+async function ensureHands(){
+  if(window.Hands && (window.Hands.Hands||window.Hands)) return;
+  log('loading libs…');
+  await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js');
+  await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js');
+}
+
+/* ===== Camera + Hands ===== */
+async function startCamera(){
+  log('<b>click:</b> Запустить камеру');
+  try{
+    await ensureHands();
+    const HandsCtor = (window.Hands && window.Hands.Hands) || window.Hands;
+    if(!HandsCtor) throw new Error('Hands недоступен');
+
+    hands = new HandsCtor({ locateFile: (f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+    const quality = qualitySel.value;
+    hands.setOptions({
+      maxNumHands:1, selfieMode:true,
+      modelComplexity: (quality==='quality'?1:0),
+      minDetectionConfidence:0.5, minTrackingConfidence:0.5
+    });
+    hands.onResults(onHands);
+
+    const camW = (quality==='quality')? 960 : (quality==='balanced'? 720 : 640);
+    const camH = 540;
+
+    // getUserMedia (надёжно для Safari по клику)
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'user', width:{ideal:camW}, height:{ideal:camH} },
+      audio:false
+    });
+    video.srcObject=stream; await video.play();
+
+    // обработка кадров
+    const tick = async ()=>{
+      await hands.send({image:video});
+      trCount++;
+      const now=performance.now();
+      if(now-lastTR>500){ trackFPS=(trCount*1000)/(now-lastTR); trCount=0; lastTR=now; }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+
+    status('Камера: ок');
+    if(showDbg.checked){ video.style.display='block'; dbg.style.display='block'; }
+  }catch(err){
+    showDiag('Камеру получить не удалось: '+(err.message||err));
+  }
+}
+
+/* ===== Hand results ===== */
+function onHands(res){
+  // рисуем превью в dbg при необходимости
+  if(showDbg.checked){
+    try{
+      dbgCtx.save();
+      dbgCtx.scale(-1,1); // зеркалим как фронтальная камера
+      dbgCtx.drawImage(video, -dbg.width, 0, dbg.width, dbg.height);
+      dbgCtx.restore();
+    }catch(e){}
+  }
+
+  if(!res.multiHandLandmarks || !res.multiHandLandmarks.length){
+    pointer.pinch=false; return;
+  }
+  const lm = res.multiHandLandmarks[0];
+  const idx = lm[8]; const th = lm[4]; const wrist = lm[0]; const idxMCP = lm[5];
+
+  // нормированные координаты 0..1 (с зеркалом по X при необходимости)
+  const rawX = mirrorX.checked ? (1 - idx.x) : idx.x;
+  const rawY = idx.y;
+
+  // EMA сглаживание
+  const k = (smoothRange.value|0)/100; // 0..0.95
+  pointer.rawX = rawX*(1-k) + pointer.rawX*k;
+  pointer.rawY = rawY*(1-k) + pointer.rawY*k;
+
+  // Пинч (с гистерезисом)
+  const palm = Math.hypot(idxMCP.x - wrist.x, idxMCP.y - wrist.y) + 1e-6;
+  const d = Math.hypot(idx.x - th.x, idx.y - th.y) / palm;
+  const base = (pinchRange.value|0)/1000; // 0.02..0.2
+  const onT = base, offT = base*1.6;
+  const prev = pointer.pinch;
+  if(!prev && d < onT) pointer.pinch = true;
+  if(prev && d > offT) pointer.pinch = false;
+  pointer.pinchDown = (!prev && pointer.pinch);
+  pointer.pinchUp   = (prev && !pointer.pinch);
+}
+
+/* ===== Render loop ===== */
+function loop(){
+  requestAnimationFrame(loop);
+  const now=performance.now(); const dt=now-lastT; lastT=now; rfCount++;
+  if(now-lastRF>500){ renderFPS=(rfCount*1000)/(now-lastRF); rfCount=0; lastRF=now; }
+
+  ctx.clearRect(0,0,W,H);
+  drawGrid();
+
+  // курсор
+  pointer.x = lerp(pointer.x, pointer.rawX, 0.6);
+  pointer.y = lerp(pointer.y, pointer.rawY, 0.6);
+  const cx = pointer.x*W, cy = pointer.y*H;
+  cursor.style.left=cx+'px'; cursor.style.top=cy+'px';
+  cursor.classList.toggle('pinching', pointer.pinch);
+
+  // HUD
+  fpsEl.textContent = `render: ${renderFPS.toFixed(0)} fps • track: ${trackFPS.toFixed(0)} fps`;
+  drawHUD(`Пинч: ${pointer.pinch?'✅':'❌'}`, 'Щипок = клик. Кнопка «Запустить камеру» — по желанию.');
+
+  // очистка «событий кадра»
+  pointer.pinchDown=false; pointer.pinchUp=false;
+}
+function drawGrid(){
+  ctx.save(); ctx.strokeStyle='#102033'; ctx.lineWidth=1; const step=40;
+  for(let y=0;y<H;y+=step){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  for(let x=0;x<W;x+=step){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  ctx.restore();
+}
+function addRipple(x,y){
+  const d=document.createElement('div'); d.className='ripple'; d.style.left=x+'px'; d.style.top=y+'px';
+  document.body.appendChild(d); setTimeout(()=>d.remove(), 520);
+}
+
+/* kick off */
+resize(); loop(); log('boot complete');
+
+/* safety */
+window.addEventListener('error', e=> showDiag('JS ошибка: '+(e.message||'')));
+window.addEventListener('unhandledrejection', e=> showDiag('Promise отклонён: '+(e.reason && (e.reason.message||e.reason))));
+</script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<title>АНДРЕЙ — Игры на управление рукой (быстро и стабильно)</title>
+<title>АНДРЕЙ — Игры на управление рукой (старт всегда работает)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="color-scheme" content="dark" />
 <style>
@@ -32,7 +32,7 @@
          -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 8px 32px #66aaff30); animation:shine 3s ease-in-out infinite }
   .sub{ margin-top:6px; opacity:.9 }
   .start{ margin-top:18px; padding:12px 18px; font-size:16px; border-radius:14px; border:1px solid #6dbaff80; background:#6dbaff20; cursor:pointer }
-  @keyframes shine{ 0%,100%{letter-spacing:.02em} 50%{letter-spacing:.06em) }
+  @keyframes shine{ 0%,100%{letter-spacing:.02em} 50%{letter-spacing:.06em} }
   .fade-out{ animation:fadeout .6s ease forwards } @keyframes fadeout{ to{ opacity:0; visibility:hidden } }
 
   /* Menu */
@@ -68,7 +68,7 @@
     <button id="btnStart" class="btn">Запустить камеру</button>
     <label>Зеркало X <input type="checkbox" id="mirrorX" checked></label>
     <label>Сглаживание <input id="smooth" type="range" min="0" max="95" value="65"></label>
-    <label>Чувств. пинча <input id="pinch" type="range" min="20" max="200" value="90"></label>
+    <label>Чувств. пинча <input id="pinch" type="range" min="20" max="200" value="90"></input></label>
     <label>Качество <select id="quality"><option value="fast" selected>Быстро</option><option value="balanced">Сбаланс.</option><option value="quality">Качество</option></select></label>
     <label><input type="checkbox" id="showDbg"> Отладка</label>
     <div class="sep"></div>
@@ -79,9 +79,10 @@
     <div class="logo">
       <div class="made">СОЗДАНО</div>
       <div class="name">АНДРЕЕМ</div>
-      <div class="sub">управление одной рукой — щипок = клик (супер стабильная версия)</div>
-      <button id="startBtn" class="start">НАЧАТЬ</button>
-      <div id="miniTip" style="opacity:.75;margin-top:8px;font-size:12px">Сначала появится меню и игры. Камеру включишь отдельной кнопкой.</div>
+      <div class="sub">управление одной рукой — щипок = клик (стабильный старт)</div>
+      <button id="startBtn" class="start" onclick="window.__start && window.__start()">НАЧАТЬ</button>
+      <div id="miniTip" style="opacity:.75;margin-top:8px;font-size:12px">Сначала откроется меню. Камеру включишь отдельной кнопкой.</div>
+      <div id="bootMark" style="margin-top:6px;font-size:12px;opacity:.6">JS не запущен</div>
     </div>
   </div>
 
@@ -97,9 +98,11 @@
   <div id="diag"></div>
 </div>
 
-<!-- MediaPipe Hands (UMD) + Camera utils: максимально совместимо с Safari/GitHub Pages -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script>
+'use strict';
+// ===== Minimal boot marker (если видишь «JS не запущен», значит скрипт не работает) =====
+(function(){ var m=document.getElementById('bootMark'); if(m) m.textContent='JS запущен ✓'; })();
+</script>
 
 <script>
 'use strict';
@@ -155,12 +158,18 @@ function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; }
 function resize(){ W=app.clientWidth; H=app.clientHeight; canvas.width=W*DPR; canvas.height=H*DPR; canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(DPR,0,0,DPR,0,0); }
 window.addEventListener('resize', resize);
 
-// ===== Splash / Menu =====
-startBtn.addEventListener('click', ()=>{
-  // Гарантированно: сразу показываем UI и меню, без камеры
-  splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 550);
-  ui.hidden=false; menu.hidden=false; buildMenu(); resize();
-});
+// ===== Safe START (двойная страховка: addEventListener + inline onclick) =====
+window.__start = start; // для onclick
+startBtn.addEventListener('click', start);
+
+function start(){
+  try{
+    splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 550);
+    ui.hidden=false; menu.hidden=false; buildMenu(); resize();
+    status('Меню готово');
+  }catch(e){ showDiag('Старт не удался: '+(e.message||e)); }
+}
+
 btnBack.addEventListener('click', ()=> setMode('menu'));
 btnStart.addEventListener('click', startCamera);
 showDbg.addEventListener('change', ()=>{ const v=showDbg.checked; video.style.display=dbg.style.display=v?'block':'none'; });
@@ -173,13 +182,19 @@ function setMode(m){ mode=m; if(mode==='menu'){ currentGame=null; menu.hidden=fa
 app.addEventListener('pointermove', (e)=>{ const r=app.getBoundingClientRect(); pointer.rawX=(e.clientX-r.left)/r.width; pointer.rawY=(e.clientY-r.top)/r.height; });
 app.addEventListener('pointerdown', ()=>{ pointer.pinch=true; pointer.pinchDown=true; addRipple(pointer.x*W, pointer.y*H); setTimeout(()=>{ pointer.pinch=false; pointer.pinchUp=true; },120); });
 
+// ===== Dynamic loader for MediaPipe (загружаем ТОЛЬКО при нажатии «Запустить камеру») =====
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('Не загрузился '+src)); document.head.appendChild(s); }); }
+async function loadHandsLibs(){ if(window.Hands) return; await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js'); await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js'); }
+
 // ===== Camera + Hands (fast & stable) =====
 async function startCamera(){
-  const HandsCtor = (window.Hands && window.Hands.Hands) || window.Hands || null;
-  const CameraCtor = window.Camera || (window.CameraUtils && window.CameraUtils.Camera) || null;
-  if(!HandsCtor){ showDiag('Не найден MediaPipe Hands (CDN). Обнови страницу.'); return; }
   try{
-    hands = new HandsCtor({ locateFile: (f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+    await loadHandsLibs();
+    const HandsCtor = (window.Hands && window.Hands.Hands) || window.Hands || null;
+    const CameraCtor = window.Camera || (window.CameraUtils && window.CameraUtils.Camera) || null;
+    if(!HandsCtor) throw new Error('Hands недоступен');
+
+    const hands = new HandsCtor({ locateFile: (f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
     const quality = qualitySel.value;
     hands.setOptions({ maxNumHands:1, selfieMode:true, modelComplexity: quality==='quality'?1:0, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
     hands.onResults(onHands);
@@ -188,15 +203,15 @@ async function startCamera(){
     let camH = 540; // 16:9
 
     if(CameraCtor){
-      cameraWrapper = new CameraCtor(video, { width:camW, height:camH, onFrame: async()=>{ if(!processing){ processing=true; await hands.send({image:video}); processing=false; trCount++; const now=performance.now(); if(now-lastTR>500){ trackFPS = (trCount*1000)/(now-lastTR); trCount=0; lastTR=now; } } } });
-      await cameraWrapper.start();
+      const cam = new CameraCtor(video, { width:camW, height:camH, onFrame: async()=>{ if(!processing){ processing=true; await hands.send({image:video}); processing=false; trCount++; const now=performance.now(); if(now-lastTR>500){ trackFPS=(trCount*1000)/(now-lastTR); trCount=0; lastTR=now; } } } });
+      await cam.start();
     } else {
-      stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:camW}, height:{ideal:camH} }, audio:false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:camW}, height:{ideal:camH} }, audio:false });
       video.srcObject=stream; await video.play();
-      const tick=async()=>{ if(!processing){ processing=true; await hands.send({image:video}); processing=false; trCount++; const now=performance.now(); if(now-lastTR>500){ trackFPS = (trCount*1000)/(now-lastTR); trCount=0; lastTR=now; } } requestAnimationFrame(tick); }; requestAnimationFrame(tick);
+      const tick=async()=>{ if(!processing){ processing=true; await hands.send({image:video}); processing=false; trCount++; const now=performance.now(); if(now-lastTR>500){ trackFPS=(trCount*1000)/(now-lastTR); trCount=0; lastTR=now; } } requestAnimationFrame(tick); }; requestAnimationFrame(tick);
     }
     status('Камера: ок'); if(showDbg.checked) video.style.display='block';
-  }catch(err){ showDiag('Камеру получить не удалось: '+(err.name||'')+' '+(err.message||'')); status('Камера недоступна — можно играть мышью'); }
+  }catch(err){ showDiag('Камеру получить не удалось: '+(err.message||err)); status('Камера недоступна — можно играть мышью'); }
 }
 
 function onHands(res){
@@ -207,20 +222,20 @@ function onHands(res){
   const wrist = lm[0];
   const idxMCP = lm[5];
 
-  // coords 0..1 (верх-лево). Отзеркалим при включенном зеркале
+  // coords 0..1
   const rawX = mirrorX.checked ? (1 - idx.x) : idx.x;
   const rawY = idx.y;
 
-  // простое и надёжное сглаживание (EMA)
+  // EMA smoothing
   const k = (smoothRange.value|0)/100; // 0..0.95
   pointer.rawX = rawX*(1-k) + pointer.rawX*k;
   pointer.rawY = rawY*(1-k) + pointer.rawY*k;
 
-  // адаптивный пинч‑порог (норма по ладони) + гистерезис
+  // pinch with hysteresis
   const palm = Math.hypot(idxMCP.x - wrist.x, idxMCP.y - wrist.y) + 1e-6;
   const d = Math.hypot(idx.x - th.x, idx.y - th.y) / palm;
   const base = (pinchRange.value|0)/1000; // 0.02..0.2
-  const onT = base; const offT = base*1.6;
+  const onT = base, offT = base*1.6;
   const prev = pointer.pinch;
   if(!prev && d < onT) pointer.pinch = true;
   if(prev && d > offT) pointer.pinch = false;
@@ -307,12 +322,11 @@ const Games = {
 function loop(){ requestAnimationFrame(loop); const now=performance.now(); const dt=now-lastT; lastT=now; rfCount++; if(now-lastRF>500){ renderFPS=(rfCount*1000)/(now-lastRF); rfCount=0; lastRF=now; }
   ctx.clearRect(0,0,W,H); drawGrid();
   if(mode==='menu'){ drawMenuHover(); } else if(currentGame){ currentGame.update(dt); currentGame.draw(); }
-  // курсор из сглаженного raw
   pointer.x = lerp(pointer.x, pointer.rawX, 0.6); pointer.y = lerp(pointer.y, pointer.rawY, 0.6);
   const cx = pointer.x*W, cy = pointer.y*H; cursor.style.left=cx+'px'; cursor.style.top=cy+'px'; cursor.classList.toggle('pinching', pointer.pinch);
   if(mode==='menu' && pointer.pinchDown){ const hovered = getHoveredCard(cx,cy); if(hovered){ setMode(hovered.dataset.id); pointer.pinchDown=false; addRipple(cx,cy); } }
   fpsEl.textContent = `render: ${renderFPS.toFixed(0)} fps • track: ${trackFPS.toFixed(0)} fps`;
-  pointer.pinchDown=false; pointer.pinchUp=false; // reset edges
+  pointer.pinchDown=false; pointer.pinchUp=false;
 }
 function drawGrid(){ ctx.save(); ctx.strokeStyle='#102033'; ctx.lineWidth=1; const step=40; for(let y=0;y<H;y+=step){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); } for(let x=0;x<W;x+=step){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); } ctx.restore(); }
 function drawMenuHover(){ const cx=pointer.x*W, cy=pointer.y*H; for(const el of cardsEl.children){ el.classList.remove('sel'); if(hitCard(el,cx,cy)) el.classList.add('sel'); } }

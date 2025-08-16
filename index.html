@@ -2,107 +2,103 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<title>АНДРЕЙ — Полный трекинг тела + 5 игр (Safari/GitHub ready)</title>
+<title>АНДРЕЙ — 5 игр на управление рукой (60 FPS, Safari/GitHub)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="color-scheme" content="dark" />
 <style>
-  :root{
-    --bg:#070b11; --panel:#0f1520; --line:#ffffff22; --txt:#e8eef7; --accent:#86c9ff; --ok:#6ee7a8; --warn:#ffd479;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  #app{position:fixed;inset:0;overflow:hidden}
-  canvas#view{position:absolute;inset:0;width:100%;height:100%;display:block;background:radial-gradient(1200px 800px at 50% 40%, #0b1321, #070b11)}
+  :root{ --bg:#070b11; --panel:#0f1520; --line:#ffffff22; --txt:#e8eef7; --accent:#86c9ff; --ok:#6ee7a8; --warn:#ffd479; }
+  *{ box-sizing:border-box }
+  html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif }
+  #app{ position:fixed; inset:0; overflow:hidden }
+  canvas#view{ position:absolute; inset:0; width:100%; height:100%; display:block; background:radial-gradient(1200px 800px at 50% 40%, #0b1321, #070b11) }
 
   /* UI */
-  #ui{position:absolute;left:12px;right:12px;top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;z-index:20;
-      background:#0d1421cc;border:1px solid var(--line);border-radius:14px;padding:10px;backdrop-filter:blur(8px)}
-  .btn, select, input[type=range]{appearance:none;border:1px solid var(--line);background:#ffffff12;color:var(--txt);
-      padding:8px 12px;border-radius:12px;font-weight:700;cursor:pointer}
-  .btn:active{transform:translateY(1px)}
-  .ghost{background:transparent}
-  #status{margin-left:auto;font-size:12px;opacity:.9}
-  #badge{font-size:12px;opacity:.8;padding:6px 8px;border-radius:10px;border:1px solid var(--line)}
+  #ui{ position:absolute; left:12px; right:12px; top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; z-index:30;
+       background:#0d1421cc; border:1px solid var(--line); border-radius:14px; padding:10px; backdrop-filter:blur(8px) }
+  .btn, select, input[type=range]{ appearance:none; border:1px solid var(--line); background:#ffffff12; color:var(--txt);
+       padding:8px 12px; border-radius:12px; font-weight:700; cursor:pointer }
+  .btn:active{ transform:translateY(1px) }
+  .ghost{ background:transparent }
+  #status{ margin-left:auto; font-size:12px; opacity:.9 }
+  .sep{ width:1px; height:28px; background:var(--line) }
+  label{ display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--line); border-radius:12px; background:#ffffff10 }
 
   /* Splash */
-  #splash{position:absolute;inset:0;display:grid;place-items:center;z-index:50;background:
-    radial-gradient(900px 640px at 50% 30%, #ffffff12, #00000088 60%, #000), var(--bg)}
-  .logo{text-align:center}
-  .made{font-size:14px;letter-spacing:.22em;opacity:.72}
-  .name{font-size:44px;font-weight:900;letter-spacing:.02em;background:linear-gradient(90deg,#78b6ff,#baf0ff,#78b6ff);
-        -webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 8px 32px #66aaff30);animation:shine 3s ease-in-out infinite}
-  .sub{margin-top:6px;opacity:.9}
-  .start{margin-top:18px;padding:12px 18px;font-size:16px;border-radius:14px;border:1px solid #6dbaff80;background:#6dbaff20;cursor:pointer}
-  @keyframes shine{0%,100%{letter-spacing:.02em}50%{letter-spacing:.06em}}
-  .fade-out{animation:fadeout .6s ease forwards}
-  @keyframes fadeout{to{opacity:0;visibility:hidden}}
+  #splash{ position:absolute; inset:0; display:grid; place-items:center; z-index:50; background:
+    radial-gradient(900px 640px at 50% 30%, #ffffff12, #00000088 60%, #000), var(--bg) }
+  .logo{ text-align:center }
+  .made{ font-size:14px; letter-spacing:.22em; opacity:.72 }
+  .name{ font-size:44px; font-weight:900; letter-spacing:.02em; background:linear-gradient(90deg,#78b6ff,#baf0ff,#78b6ff);
+         -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 8px 32px #66aaff30); animation:shine 3s ease-in-out infinite }
+  .sub{ margin-top:6px; opacity:.9 }
+  .start{ margin-top:18px; padding:12px 18px; font-size:16px; border-radius:14px; border:1px solid #6dbaff80; background:#6dbaff20; cursor:pointer }
+  @keyframes shine{ 0%,100%{letter-spacing:.02em} 50%{letter-spacing:.06em} }
+  .fade-out{ animation:fadeout .6s ease forwards } @keyframes fadeout{ to{ opacity:0; visibility:hidden } }
 
-  /* Cards */
-  #menu{position:absolute;inset:0;display:grid;place-items:center;z-index:10}
-  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;width:min(1100px,92%)}
-  .card{background:#0e1625aa;border:1px solid var(--line);border-radius:16px;padding:14px;min-height:120px;cursor:pointer;position:relative;overflow:hidden}
-  .card h3{margin:.2em 0;font-size:18px}
-  .card p{margin:.2em 0;font-size:13px;opacity:.9}
-  .card .hint{position:absolute;right:10px;bottom:10px;font-size:11px;opacity:.6}
-  .card.sel{outline:2px solid var(--accent);box-shadow:0 0 0 4px #86c9ff30}
+  /* Menu */
+  #menu{ position:absolute; inset:0; display:grid; place-items:center; z-index:10 }
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; width:min(1100px,92%) }
+  .card{ background:#0e1625aa; border:1px solid var(--line); border-radius:16px; padding:14px; min-height:120px; cursor:pointer; position:relative; overflow:hidden }
+  .card h3{ margin:.2em 0; font-size:18px }
+  .card p{ margin:.2em 0; font-size:13px; opacity:.9 }
+  .card .hint{ position:absolute; right:10px; bottom:10px; font-size:11px; opacity:.6 }
+  .card.sel{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #86c9ff30 }
 
-  /* Debug */
-  #video,#dbg{position:absolute;right:12px;bottom:12px;width:240px;height:auto;border-radius:12px;border:1px solid var(--line);display:none;z-index:40;background:#000}
-  #dbg{right:264px}
+  /* Debug + cursor */
+  #video,#dbg{ position:absolute; right:12px; bottom:12px; width:240px; height:auto; border-radius:12px; border:1px solid var(--line); display:none; z-index:40; background:#000 }
+  #dbg{ right:264px }
+  #diag{ position:fixed; left:12px; right:12px; top:12px; z-index:9999; padding:10px 12px; border-radius:12px; background:#2a0b0b; color:#ffd9d9; border:1px solid #ff6b6b; font:600 13px/1.3 system-ui; white-space:pre-wrap; display:none }
+  #cursor{ position:absolute; width:24px; height:24px; border-radius:50%; border:2px solid var(--accent); box-shadow:0 0 18px #86c9ff60; pointer-events:none; z-index:35; transform:translate(-50%,-50%); transition:transform .05s }
+  #cursor.pinching{ background:#86c9ff }
+  .ripple{ position:absolute; pointer-events:none; width:12px; height:12px; border-radius:999px; border:2px solid #86c9ff; opacity:.9; transform:translate(-50%,-50%); animation:rip .5s ease-out both; z-index:34 }
+  @keyframes rip{ from{ opacity:1; width:6px; height:6px } to{ opacity:0; width:80px; height:80px } }
 
-  /* Red bar */
-  #diag{position:fixed;left:12px;right:12px;top:12px;z-index:9999;padding:10px 12px;border-radius:12px;background:#2a0b0b;color:#ffd9d9;border:1px solid #ff6b6b;font:600 13px/1.3 system-ui;white-space:pre-wrap;display:none}
+  /* FPS pill */
+  #fps{ position:absolute; left:12px; bottom:12px; z-index:40; font:600 12px system-ui; opacity:.8; background:#0d1421cc; border:1px solid var(--line); padding:6px 8px; border-radius:10px }
 
-  /* Cursor (hand) */
-  #cursor{position:absolute;width:26px;height:26px;border-radius:50%;border:2px solid var(--accent);box-shadow:0 0 24px #86c9ff60;pointer-events:none;z-index:30;transform:translate(-50%,-50%)}
-  #cursor.pinching{background:#86c9ff}
-
-  @media (max-width:720px){.name{font-size:30px}#video,#dbg{display:none!important}}
+  @media (max-width:720px){ .name{font-size:30px} #video,#dbg{display:none!important} }
 </style>
 </head>
 <body>
 <div id="app">
   <canvas id="view"></canvas>
 
-  <!-- UI -->
   <div id="ui" hidden>
     <button id="btnBack" class="btn">⟵ Меню</button>
-    <button id="btnStartCam" class="btn">Запустить камеру</button>
+    <button id="btnStart" class="btn">Запустить камеру</button>
     <label>Зеркало X <input type="checkbox" id="mirrorX" checked></label>
-    <label>Ведущая рука
-      <select id="handed"><option value="right">Правая</option><option value="left">Левая</option></select>
-    </label>
-    <button id="btnCalib" class="btn">Калибровка</button>
+    <label>Сглаживание <input id="smooth" type="range" min="0" max="50" value="20"></label>
+    <label>Чувств. пинча <input id="pinch" type="range" min="20" max="200" value="80"></label>
+    <label>Качество <select id="quality"><option value="fast">Быстро</option><option value="balanced" selected>Сбаланс.</option><option value="quality">Качество</option></select></label>
     <label><input type="checkbox" id="showDbg"> Отладка</label>
-    <div id="badge">Пинч = клик ✋</div>
+    <div class="sep"></div>
     <div id="status">Готово</div>
   </div>
 
-  <!-- Splash -->
   <div id="splash">
     <div class="logo">
       <div class="made">СОЗДАНО</div>
       <div class="name">АНДРЕЕМ</div>
-      <div class="sub">полный трекинг тела и управление жестами (Safari-ready)</div>
+      <div class="sub">управление сайтом и играми одной рукой — щипок = клик</div>
       <button id="startBtn" class="start">НАЧАТЬ</button>
-      <div id="miniTip" style="opacity:.75;margin-top:8px;font-size:12px">Поставь ноут так, чтобы ты помещался в кадре целиком</div>
+      <div id="miniTip" style="opacity:.75;margin-top:8px;font-size:12px">Поставь ноут на расстоянии ~1 м, рука целиком в кадре</div>
     </div>
   </div>
 
-  <!-- Menu (cards) -->
   <div id="menu" hidden>
     <div class="cards" id="cards"></div>
   </div>
 
   <div id="cursor"></div>
+  <div id="fps">render: — fps • track: — fps</div>
 
   <video id="video" playsinline muted></video>
   <canvas id="dbg" width="240" height="160"></canvas>
   <div id="diag"></div>
 </div>
 
-<!-- MediaPipe Holistic (UMD) + Camera utils -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
+<!-- MediaPipe Hands (UMD) + Camera utils: максимально совместимо с Safari/GitHub Pages -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
@@ -116,45 +112,41 @@ const startBtn = document.getElementById('startBtn');
 const splash = document.getElementById('splash');
 const menu = document.getElementById('menu');
 const cardsEl = document.getElementById('cards');
-const btnStartCam = document.getElementById('btnStartCam');
 const btnBack = document.getElementById('btnBack');
-const btnCalib = document.getElementById('btnCalib');
+const btnStart = document.getElementById('btnStart');
 const mirrorX = document.getElementById('mirrorX');
+const smoothRange = document.getElementById('smooth');
+const pinchRange = document.getElementById('pinch');
+const qualitySel = document.getElementById('quality');
 const showDbg = document.getElementById('showDbg');
-const handed = document.getElementById('handed');
 const statusEl = document.getElementById('status');
 const video = document.getElementById('video');
 const dbg = document.getElementById('dbg');
 const dbgCtx = dbg.getContext('2d');
 const diag = document.getElementById('diag');
 const cursor = document.getElementById('cursor');
+const fpsEl = document.getElementById('fps');
 
 /** ===== State ===== */
-let W=0,H=0, DPR=Math.min(window.devicePixelRatio||1,2);
-let holistic=null, cameraWrapper=null, stream=null;
-let mode='menu'; // 'menu' or game id
+let W=0,H=0, DPR=Math.min(window.devicePixelRatio||1, 2);
+let mode='menu';
 let lastT=performance.now();
-let body = {
-  // normalized 0..1
-  nose:{x:.5,y:.5,z:0},
-  hip:{x:.5,y:.8}, // mid-hip
-  rwrist:{x:.8,y:.8,z:0}, lwrist:{x:.2,y:.8,z:0},
-  rindex:{x:.8,y:.7}, lindex:{x:.2,y:.7},
-  rthumb:{x:.78,y:.72}, lthumb:{x:.22,y:.72},
-  pinchR:false, pinchL:false,
-  velR:{x:0,y:0,z:0}, velL:{x:0,y:0,z:0},
-  present:false
-};
-let zero = { cx:.5, cy:.5 }; // calibration center for pointer
-let pointer = { x:.5, y:.5, pinching:false };
-let debugDraw=false;
+let renderFPS=0, trackFPS=0; let _rf=0,_rt=0,_rfT=0,_rtT=0;
+let processing=false;
 
-const GAMES = [
-  {id:'runner', name:'Runner', desc:'Уклоняйся корпусом, прыжок — руки над головой'},
-  {id:'pong', name:'AirPong', desc:'Правой рукой води ракетку и отбивай мяч'},
-  {id:'bubbles', name:'BubblePop', desc:'Лопай пузыри щипком'},
-  {id:'pose', name:'PoseMatch', desc:'Повторяй заданную позу, получай %'},
-  {id:'punch', name:'PunchTargets', desc:'Бей цели быстрыми ударами'}
+// pointer with OneEuro smoothing
+const pointer = { x:.5, y:.5, rawX:.5, rawY:.5, pinch:false, pinchDown:false, pinchUp:false };
+const oneEuro = OneEuroFilter(60, 1.6, 0.3, 5.0); // f, minCutoff, beta, dCutoff
+
+let hands=null, cameraWrapper=null, stream=null;
+let currentGame=null;
+
+const GAMES=[
+  {id:'breaker', name:'Brick Breaker', desc:'Платформа по X, пинч = запуск/ультра'},
+  {id:'targets', name:'Target Shooter', desc:'Наведи и пинч — стреляй, комбо!'},
+  {id:'moles', name:'Whack‑a‑Mole', desc:'Появляются кроты — пинч, чтобы ударить'},
+  {id:'bubbles', name:'Bubble Pop', desc:'Лопай пузыри пинчем'},
+  {id:'slice', name:'Fruit Slice', desc:'Держи пинч и веди — режь фрукты'}
 ];
 
 /** ===== Utils ===== */
@@ -163,357 +155,227 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 function status(m){ statusEl.textContent=m; clearTimeout(status._t); status._t=setTimeout(()=>statusEl.textContent='Готово',3000); }
 function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; }
 
-function resize(){
-  W = app.clientWidth; H = app.clientHeight;
-  canvas.width = Math.floor(W*DPR); canvas.height = Math.floor(H*DPR);
-  canvas.style.width=W+'px'; canvas.style.height=H+'px';
-  ctx.setTransform(DPR,0,0,DPR,0,0);
-}
+function resize(){ W=app.clientWidth; H=app.clientHeight; canvas.width=W*DPR; canvas.height=H*DPR; canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(DPR,0,0,DPR,0,0); }
 window.addEventListener('resize', resize);
 
-/** ===== Splash start ===== */
-startBtn.addEventListener('click', ()=>{
-  splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 550);
-  ui.hidden=false; menu.hidden=false; buildMenu(); resize();
-});
+/** ===== Splash / Menu ===== */
+startBtn.addEventListener('click', ()=>{ splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 550); ui.hidden=false; menu.hidden=false; buildMenu(); resize(); });
+btnBack.addEventListener('click', ()=> setMode('menu'));
+btnStart.addEventListener('click', startCamera);
+showDbg.addEventListener('change', ()=>{ const v=showDbg.checked; video.style.display=dbg.style.display=v?'block':'none'; });
 
-btnBack.addEventListener('click', ()=>{ setMode('menu'); });
-btnCalib.addEventListener('click', ()=>{ zero.cx=pointer.x; zero.cy=pointer.y; status('Калибровка по центру выполнена'); });
-showDbg.addEventListener('change', ()=>{ debugDraw = showDbg.checked; video.style.display= dbg.style.display = debugDraw? 'block':'none'; });
-btnStartCam.addEventListener('click', startCamera);
+function buildMenu(){ cardsEl.innerHTML=''; GAMES.forEach(g=>{ const el=document.createElement('div'); el.className='card'; el.dataset.id=g.id; el.innerHTML=`<h3>${g.name}</h3><p>${g.desc}</p><div class="hint">Пинч = выбрать</div>`; cardsEl.appendChild(el); }); }
+
+function setMode(m){ mode=m; if(mode==='menu'){ currentGame=null; menu.hidden=false; btnBack.disabled=true; } else { btnBack.disabled=false; menu.hidden=true; currentGame = Games[mode](); currentGame.init(); } }
 
 /** ===== Pointer fallback (mouse) ===== */
-app.addEventListener('pointermove', (e)=>{
-  const r=app.getBoundingClientRect(); pointer.x=(e.clientX-r.left)/r.width; pointer.y=(e.clientY-r.top)/r.height;
-});
-app.addEventListener('pointerdown', ()=>{ pointer.pinching=true; setTimeout(()=>pointer.pinching=false, 120); });
+app.addEventListener('pointermove', (e)=>{ const r=app.getBoundingClientRect(); pointer.rawX=(e.clientX-r.left)/r.width; pointer.rawY=(e.clientY-r.top)/r.height; });
+app.addEventListener('pointerdown', ()=>{ pointer.pinch=true; pointer.pinchDown=true; addRipple(pointer.x*W, pointer.y*H); setTimeout(()=>{ pointer.pinch=false; pointer.pinchUp=true; },120); });
 
-/** ===== Build Menu ===== */
-function buildMenu(){
-  cardsEl.innerHTML='';
-  GAMES.forEach(g=>{
-    const el=document.createElement('div'); el.className='card'; el.dataset.id=g.id;
-    el.innerHTML=`<h3>${g.name}</h3><p>${g.desc}</p><div class="hint">Пинч = выбор</div>`;
-    cardsEl.appendChild(el);
-  });
-}
-
-/** ===== Mode switching ===== */
-let currentGame=null;
-function setMode(m){
-  mode = m;
-  if(mode==='menu'){ currentGame=null; menu.hidden=false; btnBack.disabled=true; }
-  else{
-    btnBack.disabled=false; menu.hidden=true;
-    // init chosen game
-    if(mode==='runner') currentGame = GameRunner();
-    else if(mode==='pong') currentGame = GamePong();
-    else if(mode==='bubbles') currentGame = GameBubbles();
-    else if(mode==='pose') currentGame = GamePoseMatch();
-    else if(mode==='punch') currentGame = GamePunchTargets();
-    currentGame.init();
-  }
-}
-
-/** ===== Camera + Holistic ===== */
+/** ===== Camera + Hands (fast path) ===== */
 async function startCamera(){
-  const HolisticCtor = (window.Holistic && window.Holistic.Holistic) || window.Holistic || null;
-  const CameraCtor   = window.Camera || (window.CameraUtils && window.CameraUtils.Camera) || null;
-  if(!HolisticCtor){ showDiag('Не найден Holistic (CDN). Проверь сеть и перезагрузи.'); return; }
-
+  const HandsCtor = (window.Hands && window.Hands.Hands) || window.Hands || null;
+  const CameraCtor = window.Camera || (window.CameraUtils && window.CameraUtils.Camera) || null;
+  if(!HandsCtor){ showDiag('Не найден MediaPipe Hands (CDN). Обнови страницу.'); return; }
   try{
-    holistic = new HolisticCtor({ locateFile: (f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${f}` });
-    holistic.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-      refineFaceLandmarks: false
-    });
-    holistic.onResults(onResults);
+    hands = new HandsCtor({ locateFile: (f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+    const quality = qualitySel.value;
+    const opt = { maxNumHands:1, selfieMode:true, modelComplexity: quality==='quality'?1:0, minDetectionConfidence:0.5, minTrackingConfidence:0.5 };
+    hands.setOptions(opt);
+    hands.onResults(onHands);
+
+    let camW = (quality==='quality')? 960 : (quality==='balanced'? 720 : 640);
+    let camH = 540; // 16:9
 
     if(CameraCtor){
-      cameraWrapper = new CameraCtor(video, { onFrame: async()=>{ await holistic.send({image:video}); }, width:1280, height:720 });
+      cameraWrapper = new CameraCtor(video, { width:camW, height:camH, onFrame: async()=>{ if(!processing){ processing=true; const t0=performance.now(); await hands.send({image:video}); const t1=performance.now(); processing=false; _rt++; trackFPS = smoothFPS(_rt, t1); } } });
       await cameraWrapper.start();
-      status('Камера: ок'); if(debugDraw) video.style.display='block';
-    }else{
-      // fallback
-      stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} }, audio:false });
+    } else {
+      stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:camW}, height:{ideal:camH} }, audio:false });
       video.srcObject=stream; await video.play();
-      const tick=async()=>{ await holistic.send({image:video}); requestAnimationFrame(tick); }; requestAnimationFrame(tick);
-      status('Камера: ок'); if(debugDraw) video.style.display='block';
+      const tick=async()=>{ if(!processing){ processing=true; const t0=performance.now(); await hands.send({image:video}); const t1=performance.now(); processing=false; _rt++; trackFPS = smoothFPS(_rt, t1); } requestAnimationFrame(tick); }; requestAnimationFrame(tick);
     }
-  }catch(err){
-    showDiag('Камеру получить не удалось: '+(err.name||'')+' '+(err.message||''));
-    status('Камера недоступна — можно играть мышью');
-  }
+    status('Камера: ок'); if(showDbg.checked) video.style.display='block';
+  }catch(err){ showDiag('Камеру получить не удалось: '+(err.name||'')+' '+(err.message||'')); status('Камера недоступна — можно играть мышью'); }
 }
 
-/** ===== Holistic results handler ===== */
-let prev = { rw:{x:0,y:0,z:0, t:0}, lw:{x:0,y:0,z:0, t:0} };
-function onResults(res){
-  const now=performance.now();
-  // Pose center: hips
-  if(res.poseLandmarks && res.poseLandmarks.length){
-    const p=res.poseLandmarks; // 33
-    const L=p[23], R=p[24];
-    const nose=p[0];
-    const mX=(L.x+R.x)/2, mY=(L.y+R.y)/2;
-    body.hip.x = mirrorX.checked ? (1-mX) : mX;
-    body.hip.y = mY; body.nose.x = mirrorX.checked ? (1-nose.x) : nose.x; body.nose.y = nose.y; body.present=true;
-    // wrists
-    const rw=p[16], lw=p[15];
-    body.rwrist.x = mirrorX.checked ? (1-rw.x) : rw.x; body.rwrist.y = rw.y; body.rwrist.z = rw.z||0;
-    body.lwrist.x = mirrorX.checked ? (1-lw.x) : lw.x; body.lwrist.y = lw.y; body.lwrist.z = lw.z||0;
-  }
-  // Hands
-  if(res.rightHandLandmarks){
-    const h=res.rightHandLandmarks; const idx=h[8], th=h[4];
-    body.rindex.x = mirrorX.checked ? (1-idx.x) : idx.x; body.rindex.y = idx.y;
-    body.rthumb.x = mirrorX.checked ? (1-th.x) : th.x; body.rthumb.y = th.y;
-    const dx = (idx.x - th.x), dy=(idx.y - th.y);
-    const d = Math.hypot(dx,dy);
-    body.pinchR = d < 0.06; // threshold tuned for 1280x720
-  } else { body.pinchR=false; }
-  if(res.leftHandLandmarks){
-    const h=res.leftHandLandmarks; const idx=h[8], th=h[4];
-    body.lindex.x = mirrorX.checked ? (1-idx.x) : idx.x; body.lindex.y = idx.y;
-    body.lthumb.x = mirrorX.checked ? (1-th.x) : th.x; body.lthumb.y = th.y;
-    const dx = (idx.x - th.x), dy=(idx.y - th.y);
-    const d = Math.hypot(dx,dy);
-    body.pinchL = d < 0.06;
-  } else { body.pinchL=false; }
+function onHands(res){
+  // FPS
+  _rt++;
+  // results
+  if(!res.multiHandLandmarks || !res.multiHandLandmarks.length){ pointer.pinch=false; return; }
+  const lm = res.multiHandLandmarks[0]; // 21 точка
+  const idx = lm[8]; // index tip
+  const th  = lm[4]; // thumb tip
+  const wrist = lm[0];
+  const idxMCP = lm[5]; // для масштаба ладони
 
-  // velocities (wrist)
-  const useR = handed.value==='right';
-  const wr = useR ? body.rwrist : body.lwrist;
-  const pv = useR ? prev.rw : prev.lw;
-  const dt = Math.max(1, now - pv.t);
-  const vx = (wr.x - pv.x)/dt, vy=(wr.y - pv.y)/dt, vz=(wr.z - pv.z)/dt;
-  if(useR){ body.velR={x:vx,y:vy,z:vz}; prev.rw={x:wr.x,y:wr.y,z:wr.z,t:now}; }
-  else   { body.velL={x:vx,y:vy,z:vz}; prev.lw={x:wr.x,y:wr.y,z:wr.z,t:now}; }
+  // нормализованные координаты 0..1 из MediaPipe (левая верхняя = 0,0). Для экранных X зеркалим при mirrorX
+  let x = mirrorX.checked ? (1 - idx.x) : idx.x;
+  let y = idx.y;
 
-  // pointer from index tip of dominant hand
-  const pinching = useR ? body.pinchR : body.pinchL;
-  const pt = useR ? body.rindex : body.lindex;
-  pointer.x = clamp(pt.x - (zero.cx-0.5), 0, 1);
-  pointer.y = clamp(pt.y - (zero.cy-0.5), 0, 1);
-  pointer.pinching = pinching;
+  // convert to pointer with smoothing (One Euro)
+  const dt = 1/60; // целевой кадр
+  const s = oneEuro.smooth({x, y}, dt, smoothRange.value/30);
+  pointer.rawX = s.x; pointer.rawY = s.y;
+
+  // динамический пинч-порог относительно размера ладони
+  const palm = Math.hypot(idxMCP.x - wrist.x, idxMCP.y - wrist.y) + 1e-6;
+  const d = Math.hypot(idx.x - th.x, idx.y - th.y) / palm; // нормировано по ладони
+  const base = (pinchRange.value|0)/1000; // чувствительность из UI
+  const onT = base; const offT = base*1.6; // гистерезис
+  const prev = pointer.pinch;
+  if(!prev && d < onT) pointer.pinch = true;
+  if(prev && d > offT) pointer.pinch = false;
+  pointer.pinchDown = (!prev && pointer.pinch);
+  pointer.pinchUp   = (prev && !pointer.pinch);
 }
 
-/** ===== Games ===== */
-// 1) Runner — move by hip.x, jump if wrists above nose
-function GameRunner(){
-  let playerY=0, vy=0, onGround=true, score=0, lanes=[-140,0,140], laneX=0, t=0;
-  let obstacles=[];
-  function init(){ score=0; playerY=0; vy=0; onGround=true; laneX=0; t=0; obstacles=[]; }
-  function spawn(){ obstacles.push({x:canvas.width+50, y:0, w:30, h:70}); }
-  function update(dt){
-    t+=dt; if(t>1200){ t=0; spawn(); }
-    // lateral by hip.x
-    const hx = (body.hip.x-0.5)*2; laneX = lerp(laneX, hx*140, .15);
-    // jump
-    const wristsUp = (body.lwrist.y < body.nose.y-0.03) && (body.rwrist.y < body.nose.y-0.03);
-    if(wristsUp && onGround){ vy=-9; onGround=false; }
-    vy += 0.5; playerY += vy; if(playerY>0){ playerY=0; vy=0; onGround=true; }
-    // move obstacles
-    for(const o of obstacles){ o.x -= 6; }
-    obstacles = obstacles.filter(o=>o.x>-80);
-    // collisions
-    for(const o of obstacles){
-      const px = canvas.width/2 + laneX; const py = canvas.height-120 + playerY;
-      if(Math.abs(px-o.x) < (20+o.w/2) && (py > canvas.height-120 - o.h)) { score=0; obstacles=[]; break; }
-    }
-    score+=dt*0.01;
-  }
-  function draw(){
-    // ground
-    ctx.fillStyle='#0f1726'; ctx.fillRect(0, canvas.height-110, canvas.width, 110);
-    // player
-    const px = canvas.width/2 + laneX; const py = canvas.height-120 + playerY;
-    ctx.fillStyle='#7ef7d2'; ctx.beginPath(); ctx.arc(px, py, 20, 0, Math.PI*2); ctx.fill();
-    // obstacles
-    ctx.fillStyle='#87baff'; obstacles.forEach(o=>{ ctx.fillRect(o.x-o.w/2, canvas.height-120 - o.h, o.w, o.h); });
-    // score
-    drawHUD(`Счёт: ${Math.floor(score)}`, 'Прыжок: руки над головой. Двигайся корпусом.');
-  }
-  return {init,update,draw};
-}
-
-// 2) AirPong — paddle by right hand y
-function GamePong(){
-  let ball={x:0,y:0,vx:5,vy:3}, pad={x:40,y:0,h:100}, score=0;
-  function init(){ ball={x:canvas.width/2,y:canvas.height/2,vx:5,vy:3}; pad={x:40,y:canvas.height/2,h:120}; score=0; }
-  function update(){
-    const yh = clamp((handed.value==='right'? body.rwrist.y:body.lwrist.y), 0, 1);
-    pad.y = lerp(pad.y, yh*canvas.height, .25);
-    ball.x += ball.vx; ball.y += ball.vy;
-    if(ball.y<10||ball.y>canvas.height-10) ball.vy*=-1;
-    // collide with pad
-    if(ball.x<pad.x+12 && ball.x>pad.x-12 && Math.abs(ball.y-pad.y)<pad.h/2){ ball.vx=Math.abs(ball.vx)+0.5; ball.vx*=-1; score++; }
-    if(ball.x<0){ score=Math.max(0,score-1); ball={x:canvas.width/2,y:canvas.height/2,vx:5,vy:3}; }
-    if(ball.x>canvas.width) ball.vx*=-1;
-  }
-  function draw(){
-    ctx.fillStyle='#86c9ff'; ctx.fillRect(pad.x-6, pad.y-pad.h/2, 12, pad.h);
-    ctx.fillStyle='#7ef7d2'; ctx.beginPath(); ctx.arc(ball.x,ball.y,10,0,Math.PI*2); ctx.fill();
-    drawHUD(`Счёт: ${score}`, 'Води ракетку ведущей рукой вверх/вниз');
-  }
-  return {init,update,draw};
-}
-
-// 3) BubblePop — pinch pops bubbles near pointer
-function GameBubbles(){
-  let bubbles=[]; let t=0; let popped=0;
-  function init(){ bubbles=[]; t=0; popped=0; }
-  function update(dt){
-    t+=dt; if(t>400){ t=0; bubbles.push({x:Math.random()*canvas.width,y:canvas.height+20,r:10+Math.random()*20,v:1+Math.random()*1.5}); }
-    for(const b of bubbles){ b.y -= b.v; }
-    bubbles = bubbles.filter(b=> b.y>-30);
-    if(pointer.pinching){
-      for(const b of bubbles){ if(!b.dead){ const dx=b.x-pointer.x*canvas.width, dy=b.y-pointer.y*canvas.height; if(dx*dx+dy*dy < (b.r+18)*(b.r+18)){ b.dead=true; popped++; }} }
-    }
-    bubbles = bubbles.filter(b=>!b.dead);
-  }
-  function draw(){
-    for(const b of bubbles){ ctx.strokeStyle='#87baff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke(); }
-    drawHUD(`Лопнул: ${popped}`, 'Наводите курсор-ладонь, щипок = лопнуть');
-  }
-  return {init,update,draw};
-}
-
-// 4) PoseMatch — match target poses
-function GamePoseMatch(){
-  const targets=[ // simple normalized keypoints (nose, wrists, ankles)
-    {name:'T‑pose', p:{ lw:[0.15,0.45], rw:[0.85,0.45], la:[0.25,0.95], ra:[0.75,0.95] }},
-    {name:'Супергерой', p:{ lw:[0.35,0.35], rw:[0.65,0.20], la:[0.30,0.95], ra:[0.70,0.95] }},
-    {name:'Звезда', p:{ lw:[0.20,0.20], rw:[0.80,0.20], la:[0.15,0.95], ra:[0.85,0.95] }}
-  ];
-  let i=0, score=0, t=0;
-  function init(){ i=0; score=0; t=0; }
-  function err(a,b){ return Math.hypot(a[0]-b[0], a[1]-b[1]); }
-  function update(dt){
-    t+=dt; if(t>8000){ t=0; i=(i+1)%targets.length; }
-    const T=targets[i];
-    const me = {
-      lw:[body.lwrist.x, body.lwrist.y], rw:[body.rwrist.x, body.rwrist.y],
-      la:[0.3,0.95], ra:[0.7,0.95]
-    };
-    const e = err(me.lw,T.p.lw)+err(me.rw,T.p.rw)+err(me.la,T.p.la)+err(me.ra,T.p.ra);
-    score = Math.max(0, Math.round(100 - e*140));
-  }
-  function draw(){
-    // draw target ghost
-    const T=targets[i];
-    ctx.globalAlpha=0.25; ctx.fillStyle='#ffffff';
-    drawGhost(T.p.lw); drawGhost(T.p.rw); drawGhost(T.p.la); drawGhost(T.p.ra);
-    ctx.globalAlpha=1;
-    // my wrists
-    ctx.fillStyle='#7ef7d2'; ctx.beginPath(); ctx.arc(body.lwrist.x*canvas.width, body.lwrist.y*canvas.height, 10, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(body.rwrist.x*canvas.width, body.rwrist.y*canvas.height, 10, 0, Math.PI*2); ctx.fill();
-    drawHUD(`Совпадение: ${score}%`, `Поза: ${T.name} (меняется каждые 8с)`);
-  }
-  function drawGhost(pt){ ctx.beginPath(); ctx.arc(pt[0]*canvas.width, pt[1]*canvas.height, 10, 0, Math.PI*2); ctx.fill(); }
-  return {init,update,draw};
-}
-
-// 5) PunchTargets — hit appearing targets by wrist speed
-function GamePunchTargets(){
-  let targets=[]; let t=0; let hits=0;
-  function init(){ targets=[]; t=0; hits=0; }
-  function update(dt){
-    t+=dt; if(t>900){ t=0; targets.push({x: (0.2+Math.random()*0.6)*canvas.width, y:(0.2+Math.random()*0.6)*canvas.height, r:26, life:1400}); }
-    // decay
-    targets.forEach(a=>a.life-=dt); targets = targets.filter(a=>a.life>0);
-    // punch check
-    const useR = handed.value==='right';
-    const v = useR ? body.velR : body.velL;
-    const w = useR ? body.rwrist : body.lwrist;
-    const spd = Math.hypot(v.x, v.y, v.z);
-    if(spd>0.002){ // threshold
-      const x = w.x*canvas.width, y=w.y*canvas.height;
-      for(const a of targets){ if(!a.hit && Math.hypot(x-a.x,y-a.y) < a.r+10){ a.hit=true; hits++; a.life=0; break; } }
+/** ===== One Euro Filter ===== */
+function OneEuroFilter(freq, minCutoff, beta, dCutoff){
+  // Helper filters
+  function LowPass(a){ let y=0, s=false; return { filter:(x,alpha)=>{ if(!s){y=x; s=true; return x;} y = alpha*x + (1-alpha)*y; return y; }, last:()=>y } }
+  function alpha(cutoff){ const te=1/freq; const r=2*Math.PI*cutoff*te; return r/(r+1); }
+  const xFilt=LowPass(), dxFilt=LowPass();
+  return {
+    smooth(pt, dt, minC){ if(dt>0) freq=1/dt; if(minC!=null) minCutoff=minC; const x=pt.x, y=pt.y;
+      // x
+      const dx = x - (xFilt.last()); const edx = dxFilt.filter(dx, alpha(dCutoff)); const cutoff = minCutoff + beta*Math.abs(edx);
+      const xf = xFilt.filter(x, alpha(cutoff));
+      // y
+      const dy = y - (yFilt.last? yFilt.last():0); if(!yFilt.last){/*noop*/}
+      const edy = dyFilt.filter(dy, alpha(dCutoff)); const cutoffY = minCutoff + beta*Math.abs(edy);
+      const yf = yFilt.filter(y, alpha(cutoffY));
+      return {x:xf, y:yf};
     }
   }
-  function draw(){
-    for(const a of targets){ ctx.strokeStyle=a.hit?'#6ee7a8':'#ffd479'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(a.x,a.y,a.r,0,Math.PI*2); ctx.stroke(); }
-    drawHUD(`Попаданий: ${hits}`, 'Резиeкими ударами руки бей цели (скорость кисти)');
+}
+// separate filters for y
+const yFiltLP = (function(){ let y=0,s=false; return { filter:(x,a)=>{ if(!s){y=x; s=true; return x;} y=a*x+(1-a)*y; return y; }, last:()=>y } })();
+const dyFilt = (function(){ let y=0,s=false; return { filter:(x,a)=>{ if(!s){y=x; s=true; return x;} y=a*x+(1-a)*y; return y; }, last:()=>y } })();
+const yFilt = yFiltLP; // alias
+
+/** ===== Games implementations ===== */
+const Games = {
+  breaker(){
+    let paddle={x:0,y:0,w:110,h:14}, ball={x:0,y:0,vx:0,vy:0,r:8, live:false}, bricks=[], rows=6, cols=10, score=0, lives=3;
+    function init(){
+      paddle.y = H-80; ball.live=false; score=0; lives=3; makeBricks(); centerBall();
+    }
+    function makeBricks(){ bricks=[]; const bw= (W-80)/cols, bh=22; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) bricks.push({x:40+c*bw+bw*0.05,y:80+r*(bh+8),w:bw*0.9,h:bh,hp:1}); }
+    function centerBall(){ ball.x=W/2; ball.y=paddle.y-20; ball.vx=0; ball.vy=0; ball.live=false; }
+    function update(dt){
+      paddle.x = lerp(paddle.x, pointer.x*W, .3);
+      if(!ball.live){ ball.x = paddle.x; ball.y = paddle.y-20; if(pointer.pinchDown){ ball.live=true; ball.vx= (Math.random()>.5?1:-1)*4; ball.vy=-6; addRipple(ball.x,ball.y); } }
+      else{
+        ball.x+=ball.vx; ball.y+=ball.vy; ball.vy+=0.05; // лёгкая гравитация
+        if(ball.x<ball.r||ball.x>W-ball.r) ball.vx*=-1;
+        if(ball.y<60) ball.vy*=-1;
+        // paddle
+        if(ball.y>paddle.y-10 && ball.y<paddle.y+10 && Math.abs(ball.x-paddle.x)<paddle.w/2){ ball.vy=-Math.abs(ball.vy); const off=(ball.x-paddle.x)/(paddle.w/2); ball.vx = 6*off; }
+        // bricks
+        for(const b of bricks){ if(b.hp>0 && ball.x>b.x && ball.x<b.x+b.w && ball.y>b.y && ball.y<b.y+b.h){ b.hp=0; ball.vy*=-1; score+=10; break; } }
+        bricks = bricks.filter(b=>b.hp>0);
+        if(ball.y>H+30){ lives--; centerBall(); if(lives<=0){ makeBricks(); lives=3; score=0; } }
+      }
+    }
+    function draw(){
+      // field
+      ctx.fillStyle='#0f1726'; ctx.fillRect(0,60,W,2);
+      // bricks
+      for(const b of bricks){ ctx.fillStyle='#87baff'; ctx.fillRect(b.x,b.y,b.w,b.h); }
+      // paddle
+      ctx.fillStyle='#7ef7d2'; ctx.fillRect(paddle.x-paddle.w/2, paddle.y-paddle.h/2, paddle.w, paddle.h);
+      // ball
+      ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2); ctx.fill();
+      drawHUD(`Очки: ${score} • Жизни: ${lives}`, 'Пинч = запустить мяч');
+    }
+    return {init,update,draw};
+  },
+  targets(){
+    let targets=[], t=0, score=0, combo=0, cd=0;
+    function init(){ targets=[]; t=0; score=0; combo=0; cd=0; }
+    function spawn(){ const y=80+Math.random()*(H-160); const dir=Math.random()<.5?-1:1; targets.push({x:dir<0?W+40:-40,y, r:18+Math.random()*12, vx:dir*(2+Math.random()*2), life:4000}); }
+    function update(dt){ t+=dt; if(t>600){ t=0; spawn(); } targets.forEach(a=>{ a.x+=a.vx; a.life-=dt; }); targets = targets.filter(a=>a.life>0 && a.x>-80 && a.x<W+80);
+      cd=Math.max(0,cd-dt);
+      if(pointer.pinchDown && cd===0){ cd=180; // 180ms
+        const x=pointer.x*W, y=pointer.y*H; let hit=false; for(const a of targets){ if(!a.dead && Math.hypot(x-a.x,y-a.y)<a.r+6){ a.dead=true; a.life=0; hit=true; break; } }
+        if(hit){ combo++; score += 10*combo; addRipple(x,y); } else { combo=0; }
+      }
+    }
+    function draw(){ for(const a of targets){ ctx.strokeStyle='#ffd479'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(a.x,a.y,a.r,0,Math.PI*2); ctx.stroke(); }
+      drawHUD(`Очки: ${score} • Комбо: x${combo}`, 'Наведи и пинч — выстрел (кд 180мс)'); }
+    return {init,update,draw};
+  },
+  moles(){
+    let holes=[], moles=[], t=0, score=0, miss=0;
+    function init(){ holes=[]; moles=[]; score=0; miss=0; const cols=3, rows=3; const gap=180; const ox=W/2-(cols-1)*gap/2, oy=H/2-(rows-1)*gap/2; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) holes.push({x:ox+c*gap,y:oy+r*gap}); }
+    function update(dt){ t+=dt; if(t>700){ t=0; const h=holes[Math.floor(Math.random()*holes.length)]; moles.push({x:h.x,y:h.y,r:26,life:1100,hit:false}); }
+      moles.forEach(m=>m.life-=dt); // expire
+      moles = moles.filter(m=>{ if(m.life<=0 && !m.hit) miss++; return m.life>0; });
+      if(pointer.pinchDown){ const x=pointer.x*W, y=pointer.y*H; for(const m of moles){ if(!m.hit && Math.hypot(x-m.x,y-m.y)<m.r+10){ m.hit=true; m.life=0; score++; addRipple(x,y); break; } } }
+    }
+    function draw(){ ctx.strokeStyle='#102033'; ctx.lineWidth=2; holes.forEach(h=>{ ctx.beginPath(); ctx.arc(h.x,h.y,34,0,Math.PI*2); ctx.stroke(); });
+      moles.forEach(m=>{ ctx.fillStyle=m.hit?'#6ee7a8':'#ffd479'; ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2); ctx.fill(); });
+      drawHUD(`Попаданий: ${score} • Промахов: ${miss}`, 'Появляется круг — ударь пинчем'); }
+    return {init,update,draw};
+  },
+  bubbles(){
+    let bubbles=[], t=0, popped=0; function init(){ bubbles=[]; t=0; popped=0; }
+    function update(dt){ t+=dt; if(t>400){ t=0; bubbles.push({x:Math.random()*W,y:H+20,r:12+Math.random()*18,v:1+Math.random()*1.5}); }
+      for(const b of bubbles){ b.y-=b.v; }
+      bubbles=bubbles.filter(b=>b.y>-30);
+      if(pointer.pinch){ const x=pointer.x*W, y=pointer.y*H; for(const b of bubbles){ if(!b.dead && Math.hypot(x-b.x,y-b.y)<b.r+12){ b.dead=true; popped++; addRipple(x,y); } } bubbles=bubbles.filter(b=>!b.dead); }
+    }
+    function draw(){ for(const b of bubbles){ ctx.strokeStyle='#87baff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke(); }
+      drawHUD(`Лопнул: ${popped}`, 'Держи пинч и веди по пузырям'); }
+    return {init,update,draw};
+  },
+  slice(){
+    let fruits=[], t=0, score=0, trail=[]; function init(){ fruits=[]; t=0; score=0; trail=[]; }
+    function spawn(){ const x=40+Math.random()*(W-80); const vY= - (5+Math.random()*4); const vX=(Math.random()-.5)*3; fruits.push({x,y:H+20,r:18+Math.random()*12,vx:vX,vy:vY,life:6000}); }
+    function update(dt){ t+=dt; if(t>500){ t=0; const x=40+Math.random()*(W-80); const vY= - (5+Math.random()*4); const vX=(Math.random()-.5)*3; fruits.push({x:x,y:H+20,r:18+Math.random()*12,vx:vX,vy:vY,life:6000}); }
+      if(pointer.pinch){ trail.push({x:pointer.x*W, y:pointer.y*H}); if(trail.length>16) trail.shift(); } else trail.length=0;
+      for(const f of fruits){ f.x+=f.vx; f.y+=f.vy; f.vy+=0.12; f.life-=dt; }
+      // slice detection: intersection with any segment of trail
+      if(trail.length>1){ for(const f of fruits){ if(!f.dead){ for(let i=1;i<trail.length;i++){ if(distToSegment(f.x,f.y, trail[i-1].x,trail[i-1].y, trail[i].x,trail[i].y) < f.r+4){ f.dead=true; score+=5; break; } } } }
+      fruits = fruits.filter(f=>!f.dead && f.life>0 && f.y<H+80);
+    }
+    function draw(){
+      // fruits
+      for(const f of fruits){ ctx.fillStyle='#ffd479'; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill(); }
+      // trail
+      if(trail.length>1){ ctx.strokeStyle='#86c9ff'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(trail[0].x,trail[0].y); for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x,trail[i].y); ctx.stroke(); }
+      drawHUD(`Очки: ${score}`, 'Держи пинч и «режь» траекторией');
+    }
+    function distToSegment(px,py, x1,y1,x2,y2){ const A=px-x1, B=py-y1, C=x2-x1, D=y2-y1; const dot=A*C+B*D; const len=C*C+D*D; let t=0; if(len>0) t=dot/len; t=clamp(t,0,1); const xx=x1+t*C, yy=y1+t*D; return Math.hypot(px-xx,py-yy); }
+    return {init,update,draw};
   }
-  return {init,update,draw};
+};
+
+/** ===== Main loop (decoupled render 60fps) ===== */
+function loop(){ requestAnimationFrame(loop); const now=performance.now(); const dt=now-lastT; lastT=now; _rf++; renderFPS = smoothFPS(_rf, now);
+  ctx.clearRect(0,0,W,H); drawGrid();
+  if(mode==='menu'){ drawMenuHover(); } else if(currentGame){ currentGame.update(dt); currentGame.draw(); }
+  // smooth pointer display
+  pointer.x = lerp(pointer.x, pointer.rawX, 0.55); pointer.y = lerp(pointer.y, pointer.rawY, 0.55);
+  const cx = pointer.x*W, cy = pointer.y*H; cursor.style.left=cx+'px'; cursor.style.top=cy+'px'; cursor.classList.toggle('pinching', pointer.pinch);
+  if(mode==='menu' && pointer.pinchDown){ const hovered = getHoveredCard(cx,cy); if(hovered){ setMode(hovered.dataset.id); pointer.pinchDown=false; addRipple(cx,cy); } }
+  // fps
+  fpsEl.textContent = `render: ${renderFPS.toFixed(0)} fps • track: ${trackFPS.toFixed(0)} fps`;
+  // reset pulse edges
+  pointer.pinchDown=false; pointer.pinchUp=false;
 }
-
-/** ===== Main loop ===== */
-function loop(){
-  requestAnimationFrame(loop);
-  const now=performance.now(); const dt=now-lastT; lastT=now;
-
-  // clear
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  // background grid
-  drawGrid();
-
-  // menu hover by pointer
-  if(mode==='menu'){
-    drawMenu();
-  } else if(currentGame){
-    currentGame.update(dt);
-    currentGame.draw();
-  }
-
-  // cursor
-  const cx = pointer.x*canvas.width, cy = pointer.y*canvas.height;
-  cursor.style.left = Math.round(cx) + 'px';
-  cursor.style.top  = Math.round(cy) + 'px';
-  cursor.classList.toggle('pinching', pointer.pinching);
-
-  // debug
-  if(debugDraw) drawDebug();
-
-  // after click simulation for menu
-  if(mode==='menu' && pointer.pinching){
-    // find hovered card
-    const hovered = getHoveredCard(cx, cy);
-    if(hovered){ setMode(hovered.dataset.id); pointer.pinching=false; }
-  }
-}
-
-function drawGrid(){
-  ctx.save(); ctx.strokeStyle='#102033'; ctx.lineWidth=1; ctx.globalAlpha=0.9;
-  const step=40; for(let y=0;y<canvas.height;y+=step){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
-  for(let x=0;x<canvas.width;x+=step){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
-  ctx.restore();
-}
-
-function drawMenu(){
-  // draw cards as DOM; highlight by pointer
-  const cx = pointer.x*canvas.width, cy = pointer.y*canvas.height;
-  let sel=null; for(const el of cardsEl.children){ el.classList.remove('sel'); if(hitCard(el,cx,cy)) { el.classList.add('sel'); sel=el; } }
-}
-
-function hitCard(el, cx, cy){
-  const r = el.getBoundingClientRect();
-  const ax = (r.left - app.getBoundingClientRect().left), ay = (r.top - app.getBoundingClientRect().top);
-  const x0=ax, y0=ay, x1=ax+r.width, y1=ay+r.height;
-  return (cx>=x0 && cx<=x1 && cy>=y0 && cy<=y1);
-}
+function drawGrid(){ ctx.save(); ctx.strokeStyle='#102033'; ctx.lineWidth=1; const step=40; for(let y=0;y<H;y+=step){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); } for(let x=0;x<W;x+=step){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); } ctx.restore(); }
+function drawMenuHover(){ const cx=pointer.x*W, cy=pointer.y*H; for(const el of cardsEl.children){ el.classList.remove('sel'); if(hitCard(el,cx,cy)) el.classList.add('sel'); } }
+function hitCard(el, cx, cy){ const r = el.getBoundingClientRect(), base = app.getBoundingClientRect(); const x0=r.left-base.left, y0=r.top-base.top; return (cx>=x0 && cx<=x0+r.width && cy>=y0 && cy<=y0+r.height); }
 function getHoveredCard(cx,cy){ for(const el of cardsEl.children){ if(hitCard(el,cx,cy)) return el; } return null; }
+function addRipple(x,y){ const d=document.createElement('div'); d.className='ripple'; d.style.left=x+'px'; d.style.top=y+'px'; document.body.appendChild(d); setTimeout(()=>d.remove(), 520); }
 
-function drawHUD(line1,line2){
-  ctx.fillStyle='#ffffff'; ctx.font='700 16px system-ui, Inter'; ctx.fillText(line1, 16, 28);
-  ctx.font='600 12px system-ui, Inter'; ctx.fillStyle='#cdd7e6'; ctx.fillText(line2, 16, 48);
-}
+// FPS smoothing
+function smoothFPS(counter, now){ if(!_rfT){ _rfT=now; return 0; } const dt = now - _rfT; if(dt>=500){ const fps = (counter*1000)/dt; if(counter===_rf) _rf=0; else _rt=0; _rfT=now; return fps; } return counter===_rf?renderFPS:trackFPS; }
 
-function drawDebug(){
-  // skeleton mini overlay
-  dbgCtx.clearRect(0,0,dbg.width,dbg.height);
-  if(video.readyState>=2) dbgCtx.drawImage(video,0,0,dbg.width,dbg.height);
-  dbgCtx.fillStyle='#00ff90';
-  const dot=(x,y)=>{ dbgCtx.beginPath(); dbgCtx.arc(x*dbg.width, y*dbg.height, 2.5, 0, Math.PI*2); dbgCtx.fill(); };
-  dot(body.nose.x, body.nose.y); dot(body.hip.x, body.hip.y); dot(body.rwrist.x, body.rwrist.y); dot(body.lwrist.x, body.lwrist.y);
-  dbgCtx.fillStyle='#86c9ff'; dot(pointer.x, pointer.y);
-}
-
-// start rendering
+// kick off
 resize(); buildMenu(); loop();
 
 </script>

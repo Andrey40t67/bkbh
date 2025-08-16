@@ -1,1550 +1,392 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HandGames Pro - Жестовое управление</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="utf-8" />
+<title>HandTrack Pro — жестовое управление (Full)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="color-scheme" content="dark light" />
+<style>
+  :root{ --bg:#0b111b; --panel:#0f1520; --line:#ffffff22; --txt:#e8eef7; --acc:#86c9ff; --ok:#6ee7a8; --warn:#ffd479; --danger:#ff8b8b; }
+  *{ box-sizing:border-box }
+  html,body{ height:100%; margin:0; background:var(--bg); color:var(--txt);
+    font:14px/1.35 Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif }
+  #app{ position:fixed; inset:0; overflow:hidden }
+  canvas#view{ position:absolute; inset:0; width:100%; height:100%; display:block;
+    background:radial-gradient(1100px 700px at 50% 40%, #0c1627, #0b111b) }
 
-        :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --secondary: #06b6d4;
-            --accent: #f59e0b;
-            --success: #10b981;
-            --danger: #ef4444;
-            --bg: #0f0f23;
-            --bg-card: rgba(255, 255, 255, 0.05);
-            --text: #ffffff;
-            --text-dim: rgba(255, 255, 255, 0.7);
-            --border: rgba(255, 255, 255, 0.1);
-            --shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-        }
+  /* UI */
+  #ui{ position:absolute; left:12px; right:12px; top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+       z-index:30; background:#0d1421cc; border:1px solid var(--line); border-radius:14px; padding:10px; backdrop-filter:blur(8px) }
+  .btn, select, input[type=range]{ appearance:none; border:1px solid var(--line); background:#ffffff12; color:var(--txt);
+       padding:8px 12px; border-radius:12px; font-weight:700; cursor:pointer }
+  .btn:active{ transform:translateY(1px) }
+  label{ display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--line); border-radius:12px; background:#ffffff10 }
+  #status{ margin-left:auto; font-size:12px; opacity:.9 }
+  #devTog{ margin-left:0; }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            background-attachment: fixed;
-            color: var(--text);
-            overflow: hidden;
-            height: 100vh;
-            cursor: none;
-        }
+  /* Splash */
+  #splash{ position:absolute; inset:0; display:grid; place-items:center; z-index:50;
+    background:radial-gradient(900px 640px at 50% 30%, #ffffff12, #00000088 60%, #000) }
+  .logo{ text-align:center }
+  .made{ font-size:13px; letter-spacing:.22em; opacity:.72 }
+  .name{ font-size:44px; font-weight:900; letter-spacing:.02em;
+         background:linear-gradient(90deg,#78b6ff,#baf0ff,#78b6ff);
+         -webkit-background-clip:text; background-clip:text; color:transparent;
+         filter:drop-shadow(0 8px 32px #66aaff30); animation:shine 3s ease-in-out infinite }
+  .sub{ margin-top:6px; opacity:.9 }
+  .start{ margin-top:18px; padding:12px 18px; font-size:16px; border-radius:14px; border:1px solid #6dbaff80; background:#6dbaff20; cursor:pointer }
+  @keyframes shine{ 0%,100%{letter-spacing:.02em} 50%{letter-spacing:.06em} }
+  .fade-out{ animation:fadeout .6s ease forwards } @keyframes fadeout{ to{ opacity:0; visibility:hidden } }
 
-        .bg-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg);
-            opacity: 0.85;
-            z-index: -1;
-        }
+  /* Menu */
+  #menu{ position:absolute; inset:0; display:grid; place-items:center; z-index:10 }
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; width:min(1100px,92%) }
+  .card{ background:#0e1625aa; border:1px solid var(--line); border-radius:16px; padding:14px; min-height:120px; cursor:pointer; position:relative; overflow:hidden }
+  .card h3{ margin:.2em 0; font-size:18px }
+  .card p{ margin:.2em 0; font-size:13px; opacity:.9 }
+  .card .hint{ position:absolute; right:10px; bottom:10px; font-size:11px; opacity:.6 }
+  .card.sel{ outline:2px solid var(--acc); box-shadow:0 0 0 4px #86c9ff30 }
 
-        #gameCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: transparent;
-            z-index: 1;
-        }
+  /* Debug + cursor */
+  #video,#dbg{ position:absolute; right:12px; bottom:12px; width:240px; height:auto; border-radius:12px; border:1px solid var(--line); display:none; z-index:40; background:#000 }
+  #dbg{ right:264px }
+  #diag{ position:fixed; left:12px; right:12px; top:12px; z-index:9999; padding:10px 12px; border-radius:12px;
+         background:#2a0b0b; color:#ffd9d9; border:1px solid var(--danger); font:600 13px/1.3 system-ui; white-space:pre-wrap; display:none }
+  #cursor{ position:absolute; width:24px; height:24px; border-radius:50%; border:2px solid var(--acc);
+           box-shadow:0 0 18px #86c9ff60; pointer-events:none; z-index:35; transform:translate(-50%,-50%) }
+  #cursor.pinching{ background:var(--acc) }
+  .ripple{ position:absolute; pointer-events:none; width:12px; height:12px; border-radius:999px; border:2px solid var(--acc); opacity:.9;
+           transform:translate(-50%,-50%); animation:rip .5s ease-out both; z-index:34 }
+  @keyframes rip{ from{ opacity:1; width:6px; height:6px } to{ opacity:0; width:80px; height:80px } }
 
-        #startScreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(15, 15, 35, 0.95);
-            backdrop-filter: blur(20px);
-            z-index: 100;
-        }
+  /* FPS pill + log */
+  #fps{ position:absolute; left:12px; bottom:12px; z-index:40; font:600 12px system-ui; opacity:.85;
+        background:#0d1421cc; border:1px solid var(--line); padding:6px 8px; border-radius:10px }
+  #log{ position:absolute; right:12px; top:12px; width:min(440px, 90vw); max-height:48vh; overflow:auto;
+        font:12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#0d1421cc;
+        border:1px solid var(--line); border-radius:12px; padding:8px 10px; white-space:pre-wrap; z-index:60; display:none }
+  #log b{ color:#bff }
+  
+  /* Pause overlay */
+  #overlay{ position:absolute; inset:0; display:none; z-index:25; place-items:center; background:#00000066; backdrop-filter:blur(2px) }
+  #overlay .box{ background:#0e1625cc; border:1px solid var(--line); border-radius:16px; padding:18px; text-align:center }
 
-        .start-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(30px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 60px;
-            text-align: center;
-            box-shadow: var(--shadow);
-            max-width: 500px;
-            width: 90%;
-        }
-
-        .start-card h1 {
-            font-size: 3rem;
-            font-weight: 900;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            margin-bottom: 20px;
-            line-height: 1.2;
-        }
-
-        .start-card p {
-            color: var(--text-dim);
-            font-size: 1.2rem;
-            margin-bottom: 40px;
-            line-height: 1.5;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            border: none;
-            border-radius: 16px;
-            color: white;
-            font-size: 1.2rem;
-            font-weight: 600;
-            padding: 20px 40px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 25px 50px rgba(99, 102, 241, 0.4);
-        }
-
-        .btn:active {
-            transform: translateY(0);
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        .btn:hover::before {
-            left: 100%;
-        }
-
-        #gameMenu {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            background: rgba(15, 15, 35, 0.95);
-            backdrop-filter: blur(20px);
-            z-index: 90;
-        }
-
-        .menu-container {
-            max-width: 800px;
-            width: 90%;
-            text-align: center;
-        }
-
-        .menu-title {
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin-bottom: 50px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        .games-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-            margin-bottom: 40px;
-        }
-
-        .game-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 30px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .game-card:hover, .game-card.selected {
-            transform: translateY(-8px);
-            border-color: var(--primary);
-            box-shadow: 0 25px 50px rgba(99, 102, 241, 0.3);
-        }
-
-        .game-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-        }
-
-        .game-card:hover::before, .game-card.selected::before {
-            transform: scaleX(1);
-        }
-
-        .game-icon {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            display: block;
-        }
-
-        .game-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 12px;
-            color: var(--text);
-        }
-
-        .game-desc {
-            color: var(--text-dim);
-            font-size: 1rem;
-            line-height: 1.5;
-        }
-
-        #hud {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            z-index: 80;
-            pointer-events: none;
-        }
-
-        .hud-panel {
-            background: var(--bg-card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 16px 20px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
-        }
-
-        .hud-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
-        }
-
-        .hud-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--danger);
-            transition: background 0.3s ease;
-        }
-
-        .status-dot.active {
-            background: var(--success);
-            box-shadow: 0 0 10px var(--success);
-        }
-
-        #backBtn {
-            background: var(--bg-card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            color: var(--text);
-            padding: 12px 24px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            pointer-events: auto;
-            display: none;
-        }
-
-        #backBtn:hover {
-            background: var(--primary);
-            border-color: var(--primary);
-        }
-
-        #gameInfo {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--bg-card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 20px 30px;
-            font-size: 1.1rem;
-            font-weight: 500;
-            text-align: center;
-            z-index: 70;
-            min-width: 300px;
-            display: none;
-        }
-
-        #cursor {
-            position: fixed;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.9);
-            border: 3px solid var(--primary);
-            pointer-events: none;
-            z-index: 1000;
-            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
-            backdrop-filter: blur(10px);
-        }
-
-        #cursor.pinching {
-            background: var(--danger);
-            border-color: var(--danger);
-            transform: scale(1.5);
-            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.6);
-        }
-
-        #cursor.clicking {
-            animation: click-pulse 0.3s ease;
-        }
-
-        @keyframes click-pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.8); }
-            100% { transform: scale(1); }
-        }
-
-        .ripple {
-            position: fixed;
-            border-radius: 50%;
-            background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 999;
-            animation: ripple-expand 0.6s ease-out;
-        }
-
-        @keyframes ripple-expand {
-            from {
-                transform: scale(0);
-                opacity: 1;
-            }
-            to {
-                transform: scale(10);
-                opacity: 0;
-            }
-        }
-
-        .particle {
-            position: fixed;
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 500;
-        }
-
-        #videoDebug {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 200px;
-            height: 150px;
-            border-radius: 12px;
-            border: 2px solid var(--border);
-            overflow: hidden;
-            display: none;
-            z-index: 60;
-        }
-
-        #video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-        }
-
-        .loading {
-            color: var(--text-dim);
-            margin-top: 20px;
-            font-size: 1rem;
-        }
-
-        .score-display {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--accent);
-            margin-bottom: 10px;
-        }
-
-        /* Адаптивность */
-        @media (max-width: 768px) {
-            .start-card {
-                padding: 40px 30px;
-            }
-            
-            .start-card h1 {
-                font-size: 2.2rem;
-            }
-            
-            .games-grid {
-                grid-template-columns: 1fr;
-                gap: 16px;
-            }
-            
-            #hud {
-                flex-direction: column;
-                gap: 12px;
-            }
-        }
-    </style>
+  @media (max-width:720px){ .name{font-size:30px} #video,#dbg{display:none!important} #log{display:none!important} }
+</style>
 </head>
 <body>
-    <div class="bg-overlay"></div>
-    
-    <canvas id="gameCanvas"></canvas>
+<div id="app">
+  <canvas id="view"></canvas>
 
-    <!-- Стартовый экран -->
-    <div id="startScreen">
-        <div class="start-card">
-            <h1>🎮 HandGames Pro</h1>
-            <p>Управляй играми жестами руки с невероятной точностью</p>
-            <button class="btn" onclick="initHandTracking()">🚀 Запустить камеру</button>
-            <div class="loading" id="loadingText"></div>
-        </div>
+  <div id="ui" hidden>
+    <button id="btnBack" class="btn">⟵ Меню</button>
+    <button id="btnPause" class="btn">⏸ Пауза</button>
+    <button id="btnStart" class="btn">📷 Запустить камеру</button>
+    <label>Зеркало X <input type="checkbox" id="mirrorX" checked></label>
+    <label>Сглаживание <input id="smooth" type="range" min="0" max="95" value="65"></label>
+    <label>Чувств. пинча <input id="pinch" type="range" min="20" max="200" value="90"></label>
+    <label>Качество
+      <select id="quality">
+        <option value="fast" selected>Быстро</option>
+        <option value="balanced">Сбаланс.</option>
+        <option value="quality">Качество</option>
+      </select>
+    </label>
+    <label id="devTog"><input type="checkbox" id="showDbg"> Отладка</label>
+    <label id="logTog"><input type="checkbox" id="showLog"> Лог</label>
+    <div id="status">Готово</div>
+  </div>
+
+  <div id="splash">
+    <div class="logo">
+      <div class="made">СОЗДАНО</div>
+      <div class="name">АНДРЕЕМ</div>
+      <div class="sub">жест «пинч» = клик. наведи курсор рукой — щипни, чтобы выбрать</div>
+      <a id="startBtn" class="start" href="#go">НАЧАТЬ</a>
+      <div id="bootMark" style="margin-top:6px;font-size:12px;opacity:.7">JS не запущен</div>
     </div>
-
-    <!-- Меню игр -->
-    <div id="gameMenu">
-        <div class="menu-container">
-            <h2 class="menu-title">Выбери игру пинчем</h2>
-            <div class="games-grid">
-                <div class="game-card" data-game="breakout">
-                    <span class="game-icon">🏓</span>
-                    <h3 class="game-title">Неон Арканоид</h3>
-                    <p class="game-desc">Управляй платформой рукой, разбивай блоки с эффектами</p>
-                </div>
-                <div class="game-card" data-game="shooter">
-                    <span class="game-icon">🚀</span>
-                    <h3 class="game-title">Космо Шутер</h3>
-                    <p class="game-desc">Пинч для стрельбы, уклоняйся от врагов</p>
-                </div>
-                <div class="game-card" data-game="defense">
-                    <span class="game-icon">🛡️</span>
-                    <h3 class="game-title">Башенная Оборона</h3>
-                    <p class="game-desc">Размещай башни пинчем, защищай базу</p>
-                </div>
-                <div class="game-card" data-game="music">
-                    <span class="game-icon">🎵</span>
-                    <h3 class="game-title">Музыкальные Круги</h3>
-                    <p class="game-desc">Попадай в такт, создавай мелодии</p>
-                </div>
-                <div class="game-card" data-game="draw">
-                    <span class="game-icon">🎨</span>
-                    <h3 class="game-title">Неон Арт</h3>
-                    <p class="game-desc">Рисуй светящимися кистями</p>
-                </div>
-                <div class="game-card" data-game="puzzle">
-                    <span class="game-icon">🧩</span>
-                    <h3 class="game-title">3D Пазлы</h3>
-                    <p class="game-desc">Собирай фигуры в пространстве</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- HUD -->
-    <div id="hud">
-        <div class="hud-panel">
-            <div class="hud-item">
-                <span class="status-dot" id="handDot"></span>
-                <span>Рука: <span id="handStatus">❌</span></span>
-            </div>
-            <div class="hud-item">
-                <span class="status-dot" id="pinchDot"></span>
-                <span>Пинч: <span id="pinchStatus">❌</span></span>
-            </div>
-            <div class="hud-item">
-                <span>FPS: <span id="fpsCounter">0</span></span>
-            </div>
-        </div>
-        <button id="backBtn" onclick="showMenu()">← Назад</button>
-    </div>
-
-    <!-- Игровая информация -->
-    <div id="gameInfo">
-        <div class="score-display" id="scoreDisplay">Очки: 0</div>
-        <div id="gameInstructions">Инструкции игры</div>
-    </div>
-
-    <!-- Курсор -->
-    <div id="cursor"></div>
-
-    <!-- Отладочное видео -->
-    <div id="videoDebug">
-        <video id="video" autoplay muted playsinline></video>
-    </div>
-
-    <!-- Подключаем MediaPipe -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-
-    <script>
-        // ===== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =====
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const video = document.getElementById('video');
-        const cursor = document.getElementById('cursor');
-        
-        let hands, camera;
-        let currentGame = null;
-        let gameState = 'start';
-        let handData = null;
-        let isHandDetected = false;
-        let isPinching = false;
-        let wasPinching = false;
-        
-        // FPS и производительность
-        let frameCount = 0;
-        let lastFrameTime = performance.now();
-        let lastHandUpdate = 0;
-        const TARGET_FPS = 60;
-        const HAND_UPDATE_INTERVAL = 1000 / TARGET_FPS;
-
-        // ===== РАЗМЕРЫ КАНВАСА =====
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        // ===== ИНИЦИАЛИЗАЦИЯ РУЧНОГО ТРЕКИНГА =====
-        async function initHandTracking() {
-            try {
-                const loadingText = document.getElementById('loadingText');
-                const startBtn = document.querySelector('.btn');
-                
-                startBtn.style.display = 'none';
-                loadingText.textContent = '📷 Получаем доступ к камере...';
-
-                // Инициализация камеры с оптимизированными настройками
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 640, max: 1280 },
-                        height: { ideal: 480, max: 720 },
-                        frameRate: { ideal: 60, min: 30 },
-                        facingMode: 'user'
-                    },
-                    audio: false
-                });
-
-                video.srcObject = stream;
-                await new Promise(resolve => {
-                    video.onloadedmetadata = resolve;
-                });
-                await video.play();
-
-                loadingText.textContent = '🤖 Загружаем ИИ модель...';
-
-                // Инициализация MediaPipe Hands с оптимизированными настройками
-                hands = new Hands({
-                    locateFile: (file) => {
-                        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-                    }
-                });
-
-                hands.setOptions({
-                    maxNumHands: 1,
-                    modelComplexity: 0, // Быстрая модель
-                    minDetectionConfidence: 0.7,
-                    minTrackingConfidence: 0.5,
-                    selfieMode: true
-                });
-
-                hands.onResults(onHandResults);
-
-                loadingText.textContent = '⚡ Запускаем трекинг...';
-
-                // Инициализация камеры с высоким FPS
-                camera = new Camera(video, {
-                    onFrame: async () => {
-                        const now = performance.now();
-                        if (now - lastHandUpdate >= HAND_UPDATE_INTERVAL) {
-                            await hands.send({ image: video });
-                            lastHandUpdate = now;
-                            updateFPS();
-                        }
-                    },
-                    width: 640,
-                    height: 480
-                });
-
-                await camera.start();
-
-                loadingText.textContent = '✅ Все готово!';
-                
-                setTimeout(() => {
-                    document.getElementById('startScreen').style.display = 'none';
-                    showMenu();
-                    document.getElementById('videoDebug').style.display = 'block';
-                }, 1000);
-
-            } catch (error) {
-                console.error('Ошибка инициализации:', error);
-                document.getElementById('loadingText').textContent = '❌ Ошибка: ' + error.message;
-                document.querySelector('.btn').style.display = 'block';
-            }
-        }
-
-        // ===== ОБРАБОТКА РЕЗУЛЬТАТОВ ТРЕКИНГА =====
-        function onHandResults(results) {
-            const handDot = document.getElementById('handDot');
-            const handStatus = document.getElementById('handStatus');
-            const pinchDot = document.getElementById('pinchDot');
-            const pinchStatus = document.getElementById('pinchStatus');
-
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                processHandData(landmarks);
-                
-                isHandDetected = true;
-                handDot.classList.add('active');
-                handStatus.textContent = '✅';
-            } else {
-                isHandDetected = false;
-                isPinching = false;
-                handData = null;
-                
-                handDot.classList.remove('active');
-                handStatus.textContent = '❌';
-                pinchDot.classList.remove('active');
-                pinchStatus.textContent = '❌';
-            }
-        }
-
-        // ===== УЛУЧШЕННАЯ ОБРАБОТКА РУКИ =====
-        function processHandData(landmarks) {
-            const indexTip = landmarks[8];   // Кончик указательного
-            const thumbTip = landmarks[11];   // Кончик большого
-            const indexMcp = landmarks[12];   // Основание указательного
-            const thumbMcp = landmarks[13];   // Основание большого
-            const wrist = landmarks;      // Запястье
-
-            // Зеркальные координаты (инвертируем X для естественности)
-            const x = (1 - indexTip.x) * canvas.width;
-            const y = indexTip.y * canvas.height;
-
-            // Улучшенное определение пинча
-            const distance = Math.sqrt(
-                Math.pow(indexTip.x - thumbTip.x, 2) +
-                Math.pow(indexTip.y - thumbTip.y, 2) +
-                Math.pow((indexTip.z || 0) - (thumbTip.z || 0), 2)
-            );
-
-            // Нормализация по размеру руки
-            const palmSize = Math.sqrt(
-                Math.pow(indexMcp.x - wrist.x, 2) +
-                Math.pow(indexMcp.y - wrist.y, 2)
-            );
-
-            const normalizedDistance = distance / (palmSize + 0.01);
-            
-            wasPinching = isPinching;
-            isPinching = normalizedDistance < 0.8; // Более чувствительный порог
-
-            handData = {
-                x: x,
-                y: y,
-                rawX: indexTip.x,
-                rawY: indexTip.y,
-                isPinching: isPinching,
-                justPinched: isPinching && !wasPinching,
-                justReleased: !isPinching && wasPinching,
-                landmarks: landmarks,
-                confidence: 1.0
-            };
-
-            // Обновление курсора
-            cursor.style.left = (x - 12) + 'px';
-            cursor.style.top = (y - 12) + 'px';
-            
-            if (isPinching) {
-                cursor.classList.add('pinching');
-            } else {
-                cursor.classList.remove('pinching');
-            }
-
-            // Обновление UI
-            const pinchDot = document.getElementById('pinchDot');
-            const pinchStatus = document.getElementById('pinchStatus');
-            
-            if (isPinching) {
-                pinchDot.classList.add('active');
-                pinchStatus.textContent = '✅';
-            } else {
-                pinchDot.classList.remove('active');
-                pinchStatus.textContent = '❌';
-            }
-
-            // Эффекты и взаимодействие
-            if (handData.justPinched) {
-                createRipple(x, y);
-                cursor.classList.add('clicking');
-                setTimeout(() => cursor.classList.remove('clicking'), 300);
-                
-                if (gameState === 'menu') {
-                    handleMenuInteraction();
-                }
-            }
-        }
-
-        // ===== МЕНЮ И НАВИГАЦИЯ =====
-        function showMenu() {
-            gameState = 'menu';
-            document.getElementById('gameMenu').style.display = 'flex';
-            document.getElementById('backBtn').style.display = 'none';
-            document.getElementById('gameInfo').style.display = 'none';
-            currentGame = null;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-
-        function handleMenuInteraction() {
-            const cards = document.querySelectorAll('.game-card');
-            cards.forEach(card => {
-                const rect = card.getBoundingClientRect();
-                if (handData.x >= rect.left && handData.x <= rect.right &&
-                    handData.y >= rect.top && handData.y <= rect.bottom) {
-                    const gameType = card.dataset.game;
-                    startGame(gameType);
-                }
-            });
-        }
-
-        function startGame(gameType) {
-            gameState = 'playing';
-            document.getElementById('gameMenu').style.display = 'none';
-            document.getElementById('backBtn').style.display = 'block';
-            document.getElementById('gameInfo').style.display = 'block';
-
-            // Удаление старых эффектов
-            document.querySelectorAll('.particle').forEach(p => p.remove());
-
-            switch(gameType) {
-                case 'breakout':
-                    currentGame = new NeonBreakoutGame();
-                    break;
-                case 'shooter':
-                    currentGame = new SpaceShooterGame();
-                    break;
-                case 'defense':
-                    currentGame = new TowerDefenseGame();
-                    break;
-                case 'music':
-                    currentGame = new MusicCirclesGame();
-                    break;
-                case 'draw':
-                    currentGame = new NeonArtGame();
-                    break;
-                case 'puzzle':
-                    currentGame = new Puzzle3DGame();
-                    break;
-            }
-        }
-
-        // ===== ЭФФЕКТЫ =====
-        function createRipple(x, y) {
-            const ripple = document.createElement('div');
-            ripple.className = 'ripple';
-            ripple.style.left = (x - 10) + 'px';
-            ripple.style.top = (y - 10) + 'px';
-            ripple.style.width = '20px';
-            ripple.style.height = '20px';
-            document.body.appendChild(ripple);
-            setTimeout(() => ripple.remove(), 600);
-        }
-
-        function createParticle(x, y, color = '#6366f1', size = 6) {
-            const particle = document.createElement('div');
-            particle.className = 'particle';
-            particle.style.left = x + 'px';
-            particle.style.top = y + 'px';
-            particle.style.width = size + 'px';
-            particle.style.height = size + 'px';
-            particle.style.background = color;
-            
-            const dx = (Math.random() - 0.5) * 200;
-            const dy = (Math.random() - 0.5) * 200;
-            
-            particle.animate([
-                { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-                { transform: `translate(${dx}px, ${dy}px) scale(0)`, opacity: 0 }
-            ], {
-                duration: 800,
-                easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-            });
-            
-            document.body.appendChild(particle);
-            setTimeout(() => particle.remove(), 800);
-        }
-
-        function updateFPS() {
-            frameCount++;
-            const now = performance.now();
-            if (now - lastFrameTime >= 1000) {
-                document.getElementById('fpsCounter').textContent = frameCount;
-                frameCount = 0;
-                lastFrameTime = now;
-            }
-        }
-
-        // ==================== ИГРЫ ====================
-
-        // ===== 1. НЕОН АРКАНОИД =====
-        class NeonBreakoutGame {
-            constructor() {
-                this.paddle = { 
-                    x: canvas.width / 2, 
-                    y: canvas.height - 60, 
-                    width: 120, 
-                    height: 16,
-                    trail: []
-                };
-                this.ball = { 
-                    x: canvas.width / 2, 
-                    y: canvas.height / 2, 
-                    dx: 5, 
-                    dy: -5, 
-                    radius: 8,
-                    trail: []
-                };
-                this.bricks = [];
-                this.particles = [];
-                this.score = 0;
-                this.level = 1;
-                this.time = 0;
-
-                this.createBricks();
-            }
-
-            createBricks() {
-                this.bricks = [];
-                const rows = 5 + this.level;
-                const cols = 8;
-                const brickWidth = (canvas.width - 100) / cols;
-                const brickHeight = 25;
-
-                for (let row = 0; row < rows; row++) {
-                    for (let col = 0; col < cols; col++) {
-                        this.bricks.push({
-                            x: 50 + col * brickWidth,
-                            y: 80 + row * (brickHeight + 5),
-                            width: brickWidth - 5,
-                            height: brickHeight,
-                            health: Math.floor(row / 2) + 1,
-                            maxHealth: Math.floor(row / 2) + 1,
-                            hue: (row * 60 + col * 30) % 360
-                        });
-                    }
-                }
-            }
-
-            update() {
-                this.time += 0.016;
-
-                if (!handData) return;
-
-                // Плавное управление платформой
-                const targetX = handData.x - this.paddle.width / 2;
-                this.paddle.x += (targetX - this.paddle.x) * 0.15;
-                this.paddle.x = Math.max(0, Math.min(canvas.width - this.paddle.width, this.paddle.x));
-
-                // След платформы
-                this.paddle.trail.push({ x: this.paddle.x + this.paddle.width / 2, y: this.paddle.y });
-                if (this.paddle.trail.length > 10) this.paddle.trail.shift();
-
-                // Движение мяча
-                this.ball.x += this.ball.dx;
-                this.ball.y += this.ball.dy;
-
-                // След мяча
-                this.ball.trail.push({ x: this.ball.x, y: this.ball.y });
-                if (this.ball.trail.length > 15) this.ball.trail.shift();
-
-                // Отскоки от стен
-                if (this.ball.x <= this.ball.radius || this.ball.x >= canvas.width - this.ball.radius) {
-                    this.ball.dx = -this.ball.dx;
-                    this.createImpactEffect(this.ball.x, this.ball.y);
-                }
-                if (this.ball.y <= this.ball.radius) {
-                    this.ball.dy = -this.ball.dy;
-                    this.createImpactEffect(this.ball.x, this.ball.y);
-                }
-
-                // Отскок от платформы
-                if (this.ball.y + this.ball.radius >= this.paddle.y &&
-                    this.ball.x >= this.paddle.x &&
-                    this.ball.x <= this.paddle.x + this.paddle.width &&
-                    this.ball.dy > 0) {
-                    
-                    this.ball.dy = -Math.abs(this.ball.dy);
-                    const hitPos = (this.ball.x - this.paddle.x) / this.paddle.width;
-                    this.ball.dx = (hitPos - 0.5) * 8;
-                    this.createImpactEffect(this.ball.x, this.ball.y);
-                }
-
-                // Столкновения с кирпичами
-                this.bricks = this.bricks.filter(brick => {
-                    if (this.ball.x + this.ball.radius >= brick.x &&
-                        this.ball.x - this.ball.radius <= brick.x + brick.width &&
-                        this.ball.y + this.ball.radius >= brick.y &&
-                        this.ball.y - this.ball.radius <= brick.y + brick.height) {
-                        
-                        brick.health--;
-                        this.ball.dy = -this.ball.dy;
-                        this.score += 10 * this.level;
-
-                        this.createExplosion(brick.x + brick.width/2, brick.y + brick.height/2, brick.hue);
-                        
-                        if (brick.health <= 0) {
-                            this.score += 50 * this.level;
-                            return false;
-                        }
-                    }
-                    return true;
-                });
-
-                // Проверка уровня
-                if (this.bricks.length === 0) {
-                    this.level++;
-                    this.createBricks();
-                    this.ball.x = canvas.width / 2;
-                    this.ball.y = canvas.height / 2;
-                    this.ball.dx = 5 + this.level;
-                    this.ball.dy = -(5 + this.level);
-                }
-
-                // Потеря мяча
-                if (this.ball.y > canvas.height + 50) {
-                    this.gameOver();
-                }
-
-                // Обновление частиц
-                this.particles = this.particles.filter(particle => {
-                    particle.x += particle.vx;
-                    particle.y += particle.vy;
-                    particle.vy += 0.2;
-                    particle.life -= 0.02;
-                    return particle.life > 0;
-                });
-
-                this.updateUI();
-            }
-
-            render() {
-                // Черный фон с эффектом
-                ctx.fillStyle = 'rgba(0, 0, 20, 0.1)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Неоновая сетка
-                this.drawNeonGrid();
-
-                // След платформы
-                this.drawTrail(this.paddle.trail, '#06b6d4', 0.5);
-
-                // Платформа с неоновым эффектом
-                const gradient = ctx.createLinearGradient(this.paddle.x, this.paddle.y, this.paddle.x + this.paddle.width, this.paddle.y);
-                gradient.addColorStop(0, '#06b6d4');
-                gradient.addColorStop(0.5, '#0891b2');
-                gradient.addColorStop(1, '#06b6d4');
-                
-                ctx.fillStyle = gradient;
-                ctx.shadowColor = '#06b6d4';
-                ctx.shadowBlur = 15;
-                ctx.fillRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
-                ctx.shadowBlur = 0;
-
-                // След мяча
-                this.drawTrail(this.ball.trail, '#f59e0b', 0.8);
-
-                // Мяч с эффектом
-                ctx.fillStyle = '#f59e0b';
-                ctx.shadowColor = '#f59e0b';
-                ctx.shadowBlur = 20;
-                ctx.beginPath();
-                ctx.arc(this.ball.x, this.ball.y, this.ball.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.shadowBlur = 0;
-
-                // Кирпичи с градиентами
-                this.bricks.forEach(brick => {
-                    const alpha = brick.health / brick.maxHealth;
-                    const hue = brick.hue + this.time * 50;
-                    
-                    const gradient = ctx.createLinearGradient(brick.x, brick.y, brick.x + brick.width, brick.y + brick.height);
-                    gradient.addColorStop(0, `hsla(${hue}, 70%, 60%, ${alpha})`);
-                    gradient.addColorStop(1, `hsla(${hue + 30}, 70%, 40%, ${alpha})`);
-                    
-                    ctx.fillStyle = gradient;
-                    ctx.shadowColor = `hsl(${hue}, 70%, 50%)`;
-                    ctx.shadowBlur = 10;
-                    ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-                });
-                ctx.shadowBlur = 0;
-
-                // Частицы
-                this.particles.forEach(particle => {
-                    ctx.globalAlpha = particle.life;
-                    ctx.fillStyle = particle.color;
-                    ctx.beginPath();
-                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-                ctx.globalAlpha = 1;
-            }
-
-            drawNeonGrid() {
-                ctx.strokeStyle = 'rgba(99, 102, 241, 0.1)';
-                ctx.lineWidth = 1;
-                const gridSize = 40;
-                
-                for (let x = 0; x < canvas.width; x += gridSize) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, 0);
-                    ctx.lineTo(x, canvas.height);
-                    ctx.stroke();
-                }
-                
-                for (let y = 0; y < canvas.height; y += gridSize) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, y);
-                    ctx.lineTo(canvas.width, y);
-                    ctx.stroke();
-                }
-            }
-
-            drawTrail(trail, color, alpha) {
-                if (trail.length < 2) return;
-                
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 3;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                
-                for (let i = 1; i < trail.length; i++) {
-                    ctx.globalAlpha = (i / trail.length) * alpha;
-                    ctx.beginPath();
-                    ctx.moveTo(trail[i-1].x, trail[i-1].y);
-                    ctx.lineTo(trail[i].x, trail[i].y);
-                    ctx.stroke();
-                }
-                ctx.globalAlpha = 1;
-            }
-
-            createImpactEffect(x, y) {
-                for (let i = 0; i < 5; i++) {
-                    this.particles.push({
-                        x: x,
-                        y: y,
-                        vx: (Math.random() - 0.5) * 8,
-                        vy: (Math.random() - 0.5) * 8,
-                        size: Math.random() * 4 + 2,
-                        life: 1,
-                        color: '#06b6d4'
-                    });
-                }
-            }
-
-            createExplosion(x, y, hue) {
-                for (let i = 0; i < 15; i++) {
-                    this.particles.push({
-                        x: x,
-                        y: y,
-                        vx: (Math.random() - 0.5) * 12,
-                        vy: (Math.random() - 0.5) * 12,
-                        size: Math.random() * 6 + 3,
-                        life: 1,
-                        color: `hsl(${hue}, 70%, 60%)`
-                    });
-                }
-            }
-
-            updateUI() {
-                document.getElementById('scoreDisplay').textContent = `Очки: ${this.score}`;
-                document.getElementById('gameInstructions').textContent = `Уровень: ${this.level} | Управляй рукой!`;
-            }
-
-            gameOver() {
-                setTimeout(() => {
-                    alert(`🏓 Игра окончена!\nОчки: ${this.score}\nУровень: ${this.level}`);
-                    showMenu();
-                }, 100);
-            }
-        }
-
-        // ===== 2. КОСМИЧЕСКИЙ ШУТЕР =====
-        class SpaceShooterGame {
-            constructor() {
-                this.player = { 
-                    x: canvas.width / 2, 
-                    y: canvas.height - 100, 
-                    size: 25,
-                    trail: []
-                };
-                this.bullets = [];
-                this.enemies = [];
-                this.particles = [];
-                this.powerups = [];
-                this.score = 0;
-                this.lives = 3;
-                this.lastShot = 0;
-                this.lastEnemy = 0;
-                this.lastPowerup = 0;
-                this.fireRate = 200;
-                this.wave = 1;
-                this.enemiesPerWave = 5;
-                this.enemiesSpawned = 0;
-            }
-
-            update() {
-                if (!handData) return;
-
-                const now = Date.now();
-
-                // Управление игроком
-                const targetX = handData.x;
-                this.player.x += (targetX - this.player.x) * 0.1;
-                this.player.x = Math.max(this.player.size, Math.min(canvas.width - this.player.size, this.player.x));
-
-                // След игрока
-                this.player.trail.push({ x: this.player.x, y: this.player.y });
-                if (this.player.trail.length > 8) this.player.trail.shift();
-
-                // Стрельба при пинче
-                if (handData.isPinching && now - this.lastShot > this.fireRate) {
-                    this.bullets.push({
-                        x: this.player.x,
-                        y: this.player.y - this.player.size,
-                        speed: -12,
-                        size: 4
-                    });
-                    this.lastShot = now;
-                    createParticle(this.player.x, this.player.y - this.player.size, '#f59e0b', 3);
-                }
-
-                // Спавн врагов
-                if (now - this.lastEnemy > 1000 && this.enemiesSpawned < this.enemiesPerWave) {
-                    this.enemies.push({
-                        x: Math.random() * (canvas.width - 60) + 30,
-                        y: -30,
-                        speed: 2 + Math.random() * 3 + this.wave * 0.5,
-                        size: 20 + Math.random() * 15,
-                        health: Math.floor(this.wave / 2) + 1,
-                        maxHealth: Math.floor(this.wave / 2) + 1,
-                        hue: Math.random() * 360,
-                        pattern: Math.floor(Math.random() * 3)
-                    });
-                    this.lastEnemy = now;
-                    this.enemiesSpawned++;
-                }
-
-                // Движение пуль
-                this.bullets = this.bullets.filter(bullet => {
-                    bullet.y += bullet.speed;
-                    return bullet.y > -10;
-                });
-
-                // Движение врагов
-                this.enemies = this.enemies.filter(enemy => {
-                    // Различные паттерны движения
-                    switch(enemy.pattern) {
-                        case 0: // Прямо
-                            enemy.y += enemy.speed;
-                            break;
-                        case 1: // Синусоида
-                            enemy.y += enemy.speed;
-                            enemy.x += Math.sin(enemy.y * 0.01) * 2;
-                            break;
-                        case 2: // Зигзаг
-                            enemy.y += enemy.speed;
-                            enemy.x += Math.sin(enemy.y * 0.05) * 3;
-                            break;
-                    }
-                    
-                    return enemy.y < canvas.height + 50;
-                });
-
-                // Проверка столкновений пуль с врагами
-                this.bullets.forEach((bullet, bulletIndex) => {
-                    this.enemies.forEach((enemy, enemyIndex) => {
-                        const dist = Math.sqrt(
-                            Math.pow(bullet.x - enemy.x, 2) + 
-                            Math.pow(bullet.y - enemy.y, 2)
-                        );
-                        
-                        if (dist < enemy.size + bullet.size) {
-                            this.bullets.splice(bulletIndex, 1);
-                            enemy.health--;
-                            this.score += 10;
-                            
-                            this.createExplosion(enemy.x, enemy.y, enemy.hue);
-                            
-                            if (enemy.health <= 0) {
-                                this.enemies.splice(enemyIndex, 1);
-                                this.score += 50;
-                                
-                                // Шанс выпадения power-up
-                                if (Math.random() < 0.1) {
-                                    this.powerups.push({
-                                        x: enemy.x,
-                                        y: enemy.y,
-                                        type: Math.random() < 0.5 ? 'speed' : 'health',
-                                        time: 0
-                                    });
-                                }
-                            }
-                        }
-                    });
-                });
-
-                // Power-ups
-                this.powerups = this.powerups.filter(powerup => {
-                    powerup.y += 3;
-                    powerup.time += 0.1;
-                    
-                    const dist = Math.sqrt(
-                        Math.pow(powerup.x - this.player.x, 2) + 
-                        Math.pow(powerup.y - this.player.y, 2)
-                    );
-                    
-                    if (dist < this.player.size + 15) {
-                        if (powerup.type === 'speed') {
-                            this.fireRate = Math.max(50, this.fireRate - 30);
-                        } else if (powerup.type === 'health') {
-                            this.lives++;
-                        }
-                        createParticle(powerup.x, powerup.y, '#10b981', 8);
-                        return false;
-                    }
-                    
-                    return powerup.y < canvas.height + 50;
-                });
-
-                // Проверка новой волны
-                if (this.enemies.length === 0 && this.enemiesSpawned >= this.enemiesPerWave) {
-                    this.wave++;
-                    this.enemiesPerWave += 2;
-                    this.enemiesSpawned = 0;
-                }
-
-                // Столкновения с игроком
-                this.enemies.forEach((enemy, index) => {
-                    const dist = Math.sqrt(
-                        Math.pow(enemy.x - this.player.x, 2) + 
-                        Math.pow(enemy.y - this.player.y, 2)
-                    );
-                    
-                    if (dist < enemy.size + this.player.size) {
-                        this.enemies.splice(index, 1);
-                        this.lives--;
-                        this.createExplosion(this.player.x, this.player.y, 0);
-                        
-                        if (this.lives <= 0) {
-                            this.gameOver();
-                        }
-                    }
-                });
-
-                // Обновление частиц
-                this.particles = this.particles.filter(particle => {
-                    particle.x += particle.vx;
-                    particle.y += particle.vy;
-                    particle.life -= 0.02;
-                    return particle.life > 0;
-                });
-
-                this.updateUI();
-            }
-
-            render() {
-                // Космический фон
-                ctx.fillStyle = 'rgba(0, 0, 10, 0.2)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Звезды
-                this.drawStars();
-
-                // След игрока
-                this.drawTrail(this.player.trail, '#06b6d4');
-
-                // Игрок (космический корабль)
-                this.drawSpaceship(this.player.x, this.player.y, this.player.size);
-
-                // Пули
-                this.bullets.forEach(bullet => {
-                    ctx.fillStyle = '#f59e0b';
-                    ctx.shadowColor = '#f59e0b';
-                    ctx.shadowBlur = 10;
-                    ctx.beginPath();
-                    ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-                ctx.shadowBlur = 0;
-
-                // Враги
-                this.enemies.forEach(enemy => {
-                    const alpha = enemy.health / enemy.maxHealth;
-                    ctx.fillStyle = `hsla(${enemy.hue}, 70%, 50%, ${alpha})`;
-                    ctx.shadowColor = `hsl(${enemy.hue}, 70%, 50%)`;
-                    ctx.shadowBlur = 15;
-                    
-                    ctx.beginPath();
-                    ctx.arc(enemy.x, enemy.y, enemy.size, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Дополнительные детали
-                    ctx.fillStyle = `hsla(${enemy.hue + 180}, 70%, 60%, ${alpha})`;
-                    ctx.beginPath();
-                    ctx.arc(enemy.x, enemy.y, enemy.size * 0.6, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-                ctx.shadowBlur = 0;
-
-                // Power-ups
-                this.powerups.forEach(powerup => {
-                    const pulse = Math.sin(powerup.time * 5) * 0.3 + 0.7;
-                    const color = powerup.type === 'speed' ? '#f59e0b' : '#10b981';
-                    
-                    ctx.fillStyle = color;
-                    ctx.shadowColor = color;
-                    ctx.shadowBlur = 15 * pulse;
-                    ctx.globalAlpha = pulse;
-                    
-                    ctx.beginPath();
-                    ctx.arc(powerup.x, powerup.y, 12, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    ctx.globalAlpha = 1;
-                });
-                ctx.shadowBlur = 0;
-
-                // Частицы
-                this.particles.forEach(particle => {
-                    ctx.globalAlpha = particle.life;
-                    ctx.fillStyle = particle.color;
-                    ctx.beginPath();
-                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-                ctx.globalAlpha = 1;
-            }
-
-            drawStars() {
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                for (let i = 0; i < 100; i++) {
-                    const x = (i * 7 + Date.now() * 0.01) % canvas.width;
-                    const y = (i * 11 + Date.now() * 0.005) % canvas.height;
-                    const size = Math.sin(i) * 0.5 + 1;
-                    ctx.beginPath();
-                    ctx.arc(x, y, size, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-
-            drawSpaceship(x, y, size) {
-                ctx.save();
-                ctx.translate(x, y);
-                
-                // Основной корпус
-                ctx.fillStyle = '#06b6d4';
-                ctx.shadowColor = '#06b6d4';
-                ctx.shadowBlur = 20;
-                ctx.beginPath();
-                ctx.moveTo(0, -size);
-                ctx.lineTo(-size * 0.7, size * 0.7);
-                ctx.lineTo(0, size * 0.3);
-                ctx.lineTo(size * 0.7, size * 0.7);
-                ctx.closePath();
-                ctx.fill();
-                
-                // Кокпит
-                ctx.fillStyle = '#f59e0b';
-                ctx.beginPath();
-                ctx.arc(0, -size * 0.3, size * 0.3, 0, Math.PI * 2);
-                ctx.fill();
-                
-                ctx.shadowBlur = 0;
-                ctx.restore();
-            }
-
-            drawTrail(trail, color) {
-                if (trail.length < 2) return;
-                
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 4;
-                ctx.lineCap = 'round';
-                
-                for (let i = 1; i < trail.length; i++) {
-                    ctx.globalAlpha = i / trail.length * 0.7;
-                    ctx.beginPath();
-                    ctx.moveTo(trail[i-1].x, trail[i-1].y);
-                    ctx.lineTo(trail[i].x, trail[i].y);
-                    ctx.stroke();
-                }
-                ctx.globalAlpha = 1;
-            }
-
-            createExplosion(x, y, hue) {
-                for (let i = 0; i < 12; i++) {
-                    this.particles.push({
-                        x: x,
-                        y: y,
-                        vx: (Math.random() - 0.5) * 10,
-                        vy: (Math.random() - 0.5) * 10,
-                        size: Math.random() * 5 + 2,
-                        life: 1,
-                        color: `hsl(${hue}, 70%, 60%)`
-                    });
-                }
-            }
-
-            updateUI() {
-                document.getElementById('scoreDisplay').textContent = `Очки: ${this.score}`;
-                document.getElementById('gameInstructions').textContent = `Жизни: ${this.lives} | Волна: ${this.wave} | Пинч = стрельба`;
-            }
-
-            gameOver() {
-                setTimeout(() => {
-                    alert(`🚀 Игра окончена!\nОчки: ${this.score}\nВолна: ${this.wave}`);
-                    showMenu();
-                }, 100);
-            }
-        }
-
-        // ===== ЗАГЛУШКИ ДЛЯ ОСТАЛЬНЫХ ИГР =====
-        class TowerDefenseGame {
-            constructor() { this.score = 0; }
-            update() {}
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#fff';
-                ctx.font = '48px Inter';
-                ctx.textAlign = 'center';
-                ctx.fillText('🛡️', canvas.width/2, canvas.height/2 - 50);
-                ctx.font = '24px Inter';
-                ctx.fillText('Башенная Оборона', canvas.width/2, canvas.height/2 + 20);
-                document.getElementById('gameInstructions').textContent = 'В разработке...';
-            }
-        }
-
-        class MusicCirclesGame {
-            constructor() { this.score = 0; }
-            update() {}
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#fff';
-                ctx.font = '48px Inter';
-                ctx.textAlign = 'center';
-                ctx.fillText('🎵', canvas.width/2, canvas.height/2 - 50);
-                ctx.font = '24px Inter';
-                ctx.fillText('Музыкальные Круги', canvas.width/2, canvas.height/2 + 20);
-                document.getElementById('gameInstructions').textContent = 'В разработке...';
-            }
-        }
-
-        class NeonArtGame {
-            constructor() { this.score = 0; }
-            update() {}
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#fff';
-                ctx.font = '48px Inter';
-                ctx.textAlign = 'center';
-                ctx.fillText('🎨', canvas.width/2, canvas.height/2 - 50);
-                ctx.font = '24px Inter';
-                ctx.fillText('Неон Арт', canvas.width/2, canvas.height/2 + 20);
-                document.getElementById('gameInstructions').textContent = 'В разработке...';
-            }
-        }
-
-        class Puzzle3DGame {
-            constructor() { this.score = 0; }
-            update() {}
-            render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#fff';
-                ctx.font = '48px Inter';
-                ctx.textAlign = 'center';
-                ctx.fillText('🧩', canvas.width/2, canvas.height/2 - 50);
-                ctx.font = '24px Inter';
-                ctx.fillText('3D Пазлы', canvas.width/2, canvas.height/2 + 20);
-                document.getElementById('gameInstructions').textContent = 'В разработке...';
-            }
-        }
-
-        // ===== ОСНОВНОЙ ИГРОВОЙ ЦИКЛ =====
-        function gameLoop() {
-            requestAnimationFrame(gameLoop);
-            
-            if (gameState === 'playing' && currentGame) {
-                currentGame.update();
-                currentGame.render();
-            }
-        }
-
-        // Добавляем эффект hover для карточек меню
-        document.addEventListener('mousemove', (e) => {
-            if (gameState === 'menu') {
-                document.querySelectorAll('.game-card').forEach(card => {
-                    card.classList.remove('selected');
-                });
-                
-                if (handData) {
-                    document.querySelectorAll('.game-card').forEach(card => {
-                        const rect = card.getBoundingClientRect();
-                        if (handData.x >= rect.left && handData.x <= rect.right &&
-                            handData.y >= rect.top && handData.y <= rect.bottom) {
-                            card.classList.add('selected');
-                        }
-                    });
-                }
-            }
-        });
-
-        gameLoop();
-    </script>
+  </div>
+
+  <div id="menu" hidden>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <div id="overlay"><div class="box"><div style="font-weight:800;margin-bottom:8px">Пауза</div>
+    <div style="opacity:.9">Сожми пальцы (пинч) ещё раз, чтобы продолжить, или нажми «⟵ Меню».</div></div></div>
+
+  <div id="cursor"></div>
+  <div id="fps">render: — fps • track: — fps</div>
+
+  <pre id="log"></pre>
+
+  <video id="video" playsinline muted></video>
+  <canvas id="dbg" width="240" height="160"></canvas>
+  <div id="diag"></div>
+</div>
+
+<script>'use strict';(function(){const m=document.getElementById('bootMark'); if(m) m.textContent='JS запущен ✓';})();</script>
+
+<script>
+'use strict';
+/******** Elements ********/ 
+const app = document.getElementById('app');
+const canvas = document.getElementById('view');
+const ctx = canvas.getContext('2d');
+const ui = document.getElementById('ui');
+const startBtn = document.getElementById('startBtn');
+const splash = document.getElementById('splash');
+const menu = document.getElementById('menu');
+const cardsEl = document.getElementById('cards');
+const btnBack = document.getElementById('btnBack');
+const btnPause = document.getElementById('btnPause');
+const overlay = document.getElementById('overlay');
+const btnStart = document.getElementById('btnStart');
+const mirrorX = document.getElementById('mirrorX');
+const smoothRange = document.getElementById('smooth');
+const pinchRange = document.getElementById('pinch');
+const qualitySel = document.getElementById('quality');
+const showDbg = document.getElementById('showDbg');
+const showLog = document.getElementById('showLog');
+const statusEl = document.getElementById('status');
+const video = document.getElementById('video');
+const dbg = document.getElementById('dbg');
+const dbgCtx = dbg.getContext('2d');
+const diag = document.getElementById('diag');
+const cursor = document.getElementById('cursor');
+const fpsEl = document.getElementById('fps');
+const logEl = document.getElementById('log');
+
+/******** State ********/ 
+let W=0,H=0, DPR=Math.min(window.devicePixelRatio||1, 2);
+let started=false, paused=false;
+let mode='menu';
+let lastT=performance.now();
+let renderFPS=0, trackFPS=0; let rfCount=0, trCount=0, lastRF=performance.now(), lastTR=performance.now();
+let processing=false;
+const pointer = { x:.5, y:.5, rawX:.5, rawY:.5, pinch:false, pinchDown:false, pinchUp:false };
+let hands=null, stream=null;
+let currentGame=null;
+
+const GAMES=[
+  {id:'breaker', name:'Brick Breaker', desc:'Платформа по X, пинч = запуск/ультра'},
+  {id:'targets', name:'Target Shooter', desc:'Наведи и пинч — стреляй, комбо!'},
+  {id:'moles',   name:'Whack‑a‑Mole',   desc:'Появляются кроты — пинч, чтобы ударить'},
+  {id:'bubbles', name:'Bubble Pop',     desc:'Лопай пузыри пинчем'},
+  {id:'slice',   name:'Fruit Slice',    desc:'Держи пинч и веди — режь фрукты'}
+];
+
+/******** Utils ********/ 
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const nowMs=()=>performance.now();
+function status(m){ statusEl.textContent=m; log('<b>STATUS:</b> '+m); }
+function showDiag(msg){ diag.style.display='block'; diag.textContent=msg; log('<b>ERROR:</b> '+msg); }
+function hideDiag(){ diag.style.display='none'; }
+function log(m){ if(!showLog.checked) return; logEl.style.display='block'; logEl.textContent += (m+'\n'); logEl.scrollTop = logEl.scrollHeight; }
+function resize(){ W=app.clientWidth; H=app.clientHeight; canvas.width=W*DPR; canvas.height=H*DPR; canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(DPR,0,0,DPR,0,0); log('<b>resize</b>: '+W+'x'+H); }
+window.addEventListener('resize', resize);
+
+/******** HUD ********/ 
+function drawHUD(topText, bottomText){
+  ctx.save();
+  ctx.fillStyle='#e8eef7';
+  ctx.font='16px Inter, system-ui, sans-serif';
+  ctx.textBaseline='top'; ctx.fillText(topText, 16, 16);
+  ctx.font='12px Inter, system-ui, sans-serif';
+  ctx.textBaseline='bottom'; ctx.fillText(bottomText, 16, H-16);
+  ctx.restore();
+}
+
+/******** Start / Pause ********/ 
+function start(){ if(started) return; started=true; log('<b>START</b>');
+  splash.classList.add('fade-out'); setTimeout(()=>{ splash.hidden=true; }, 550);
+  ui.hidden=false; menu.hidden=false; buildMenu(); resize(); status('Меню готово');
+}
+function setPause(p){ paused=p; overlay.style.display=p?'grid':'none'; }
+
+// Unstoppable start
+window.addEventListener('load', ()=> setTimeout(start, 300));
+startBtn.addEventListener('click', ()=>{ log('<b>click:</b> НАЧАТЬ'); /* hashchange will fire */ });
+window.addEventListener('hashchange', ()=>{ if(location.hash==="#go") start(); }); if(location.hash==="#go") start();
+['pointerdown','keydown'].forEach(ev=> document.addEventListener(ev, ()=>start(), {once:true,capture:true}));
+
+btnPause.addEventListener('click', ()=> setPause(!paused));
+btnBack.addEventListener('click', ()=> setMode('menu'));
+btnStart.addEventListener('click', startCamera);
+showDbg.addEventListener('change', ()=>{ const v=showDbg.checked; video.style.display=dbg.style.display=v?'block':'none'; if(!v){ hideDiag(); } });
+showLog.addEventListener('change', ()=>{ logEl.style.display=showLog.checked?'block':'none'; });
+
+function buildMenu(){
+  cardsEl.innerHTML='';
+  GAMES.forEach(g=>{
+    const el=document.createElement('div'); el.className='card'; el.dataset.id=g.id;
+    el.innerHTML=`<h3>${g.name}</h3><p>${g.desc}</p><div class="hint">Пинч = выбрать</div>`;
+    el.addEventListener('click', ()=> setMode(g.id));
+    cardsEl.appendChild(el);
+  });
+}
+
+function setMode(m){
+  mode=m; setPause(false);
+  if(mode==='menu'){ currentGame=null; menu.hidden=false; btnBack.disabled=true; status('Меню'); }
+  else { btnBack.disabled=false; menu.hidden=true; currentGame = Games[mode](); currentGame.init(); status('Игра: '+mode); }
+}
+
+/******** Pointer (mouse fallback) ********/ 
+app.addEventListener('pointermove', (e)=>{ const r=app.getBoundingClientRect(); pointer.rawX=(e.clientX-r.left)/r.width; pointer.rawY=(e.clientY-r.top)/r.height; });
+app.addEventListener('pointerdown', ()=>{ pointer.pinch=true; pointer.pinchDown=true; addRipple(pointer.x*W, pointer.y*H); setTimeout(()=>{ pointer.pinch=false; pointer.pinchUp=true; }, 140); });
+
+/******** MediaPipe load + camera ********/ 
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.async=true; s.onload=()=>{ log('loaded: '+src); res(); }; s.onerror=()=>{ log('FAIL load: '+src); rej(new Error('Не загрузился '+src)); }; document.head.appendChild(s); }); }
+async function ensureHands(){ if(window.Hands && (window.Hands.Hands||window.Hands)) return; log('loading libs…'); await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js'); await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js'); }
+
+async function startCamera(){
+  try{
+    await ensureHands();
+    const HandsCtor = (window.Hands && window.Hands.Hands) || window.Hands;
+    if(!HandsCtor) throw new Error('Hands недоступен');
+
+    hands = new HandsCtor({ locateFile: (f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+    const quality = qualitySel.value;
+    hands.setOptions({ maxNumHands:1, selfieMode:true, modelComplexity:(quality==='quality'?1:0), minDetectionConfidence:0.55, minTrackingConfidence:0.55 });
+    hands.onResults(onHands);
+
+    const camW = (quality==='quality')? 960 : (quality==='balanced'? 720 : 640);
+    const camH = 540;
+    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:camW}, height:{ideal:camH} }, audio:false });
+    video.srcObject=stream; await video.play();
+
+    const tick=async()=>{ if(!processing){ processing=true; await hands.send({image:video}); processing=false; trCount++; const t=nowMs(); if(t-lastTR>500){ trackFPS=(trCount*1000)/(t-lastTR); trCount=0; lastTR=t; } } requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+    status('Камера: ок'); if(showDbg.checked){ video.style.display='block'; dbg.style.display='block'; }
+  }catch(err){ showDiag('Камеру получить не удалось: '+(err.message||err)); }
+}
+
+function onHands(res){
+  if(showDbg.checked){ try{ dbgCtx.save(); dbgCtx.scale(-1,1); dbgCtx.drawImage(video, -dbg.width, 0, dbg.width, dbg.height); dbgCtx.restore(); }catch(e){} }
+  if(!res.multiHandLandmarks || !res.multiHandLandmarks.length){ pointer.pinch=false; return; }
+  const lm = res.multiHandLandmarks[0];
+  const idx = lm[8]; const th=lm[4]; const wrist=lm[0]; const idxMCP=lm[5];
+  const rawX = mirrorX.checked ? (1 - idx.x) : idx.x;
+  const rawY = idx.y;
+  const k = (smoothRange.value|0)/100; // EMA 0..0.95
+  pointer.rawX = rawX*(1-k) + pointer.rawX*k;
+  pointer.rawY = rawY*(1-k) + pointer.rawY*k;
+  const palm = Math.hypot(idxMCP.x - wrist.x, idxMCP.y - wrist.y) + 1e-6;
+  const d = Math.hypot(idx.x - th.x, idx.y - th.y) / palm;
+  const base = (pinchRange.value|0)/1000; const onT=base, offT=base*1.6;
+  const prev = pointer.pinch;
+  if(!prev && d < onT) pointer.pinch = true;
+  if(prev && d > offT) pointer.pinch = false;
+  pointer.pinchDown = (!prev && pointer.pinch);
+  pointer.pinchUp   = (prev && !pointer.pinch);
+}
+
+/******** Games ********/ 
+const Games = {
+  breaker(){
+    let paddle, ball, bricks, rows, cols, score, lives, level, trail=[];
+    function init(){ rows=5; cols=10; score=0; lives=3; level=1; makeBricks(); center(); }
+    function makeBricks(){ bricks=[]; const bw=(W-80)/cols, bh=22; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) bricks.push({x:40+c*bw+bw*0.05,y:90+r*(bh+8),w:bw*0.9,h:bh,hp:1}); }
+    function center(){ paddle={x:W/2,y:H-80,w:Math.max(90,Math.min(140,W*0.18)),h:14}; ball={x:W/2,y:H-100,vx:0,vy:0,r:8, live:false}; }
+    function update(){ if(paused) return; paddle.x = lerp(paddle.x, pointer.rawX*W, .35);
+      if(!ball.live){ ball.x = paddle.x; ball.y = paddle.y-20; if(pointer.pinchDown){ launch(); } }
+      else{ ball.x+=ball.vx; ball.y+=ball.vy; collide(); }
+    }
+    function launch(){ ball.live=true; ball.vx=(Math.random()>.5?1:-1)*5*(1+level*0.05); ball.vy=-7*(1+level*0.05); addRipple(ball.x,ball.y); }
+    function collide(){ if(ball.x<ball.r||ball.x>W-ball.r) ball.vx*=-1; if(ball.y<70) ball.vy*=-1;
+      if(ball.y>paddle.y-10 && ball.y<paddle.y+10 && Math.abs(ball.x-paddle.x)<paddle.w/2){ ball.vy=-Math.abs(ball.vy); const off=(ball.x-paddle.x)/(paddle.w/2); ball.vx = 7*off; trail.push({x:ball.x,y:ball.y}); if(trail.length>10) trail.shift(); }
+      for(const b of bricks){ if(b.hp>0 && ball.x>b.x && ball.x<b.x+b.w && ball.y>b.y && ball.y<b.y+b.h){ b.hp=0; ball.vy*=-1; score+=10; break; } }
+      bricks = bricks.filter(b=>b.hp>0);
+      if(bricks.length===0){ level++; rows=Math.min(8,rows+1); makeBricks(); center(); }
+      if(ball.y>H+30){ lives--; center(); if(lives<=0){ rows=5; level=1; makeBricks(); lives=3; score=0; } }
+    }
+    function draw(){ ctx.fillStyle='#0f1726'; ctx.fillRect(0,70,W,2); bricks.forEach(b=>{ ctx.fillStyle='#87baff'; ctx.fillRect(b.x,b.y,b.w,b.h); });
+      ctx.fillStyle='#7ef7d2'; ctx.fillRect(paddle.x-paddle.w/2, paddle.y-paddle.h/2, paddle.w, paddle.h);
+      ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2); ctx.fill();
+      if(trail.length>1){ ctx.strokeStyle='#86c9ff88'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(trail[0].x,trail[0].y); for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x,trail[i].y); ctx.stroke(); }
+      drawHUD(`Очки: ${score} • Жизни: ${lives} • Уровень: ${level}`, 'Пинч = запуск/ультра отскок'); }
+    return {init,update,draw};
+  },
+  targets(){
+    let targets=[], t=0, score=0, combo=0, cd=0, misses=0;
+    function init(){ targets=[]; t=0; score=0; combo=0; cd=0; misses=0; }
+    function spawn(){ const y=80+Math.random()*(H-160); const dir=Math.random()<.5?-1:1; targets.push({x:dir<0?W+40:-40,y, r:18+Math.random()*12, vx:dir*(2+Math.random()*2), life:4200}); }
+    function update(dt){ if(paused) return; t+=dt; if(t>600){ t=0; spawn(); }
+      targets.forEach(a=>{ a.x+=a.vx; a.life-=dt; }); targets = targets.filter(a=>{ if(a.life<=0){ misses++; return false; } return a.x>-80 && a.x<W+80; });
+      cd=Math.max(0,cd-dt);
+      if(pointer.pinchDown && cd===0){ cd=160; const x=pointer.rawX*W, y=pointer.rawY*H; let hit=false; for(const a of targets){ if(!a.dead && Math.hypot(x-a.x,y-a.y)<a.r+10){ a.dead=true; a.life=0; hit=true; break; } } if(hit){ combo++; score += 10*combo; addRipple(x,y); } else { combo=0; } }
+    }
+    function draw(){ targets.forEach(a=>{ ctx.strokeStyle='#ffd479'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(a.x,a.y,a.r,0,Math.PI*2); ctx.stroke(); });
+      drawHUD(`Очки: ${score} • Комбо: x${combo} • Промахов: ${misses}`, 'Наведи и пинч — выстрел (кд 160мс)'); }
+    return {init,update,draw};
+  },
+  moles(){
+    let holes=[], moles=[], t=0, score=0, miss=0;
+    function init(){ holes=[]; moles=[]; score=0; miss=0; const cols=3, rows=3; const gap=Math.min(220, Math.min(W,H)/3); const ox=W/2-(cols-1)*gap/2, oy=H/2-(rows-1)*gap/2; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) holes.push({x:ox+c*gap,y:oy+r*gap}); }
+    function update(dt){ if(paused) return; t+=dt; if(t>680){ t=0; const h=holes[Math.floor(Math.random()*holes.length)]; moles.push({x:h.x,y:h.y,r:28,life:1100,hit:false}); }
+      moles.forEach(m=>m.life-=dt); moles = moles.filter(m=>{ if(m.life<=0 && !m.hit) miss++; return m.life>0; });
+      if(pointer.pinchDown){ const x=pointer.rawX*W, y=pointer.rawY*H; for(const m of moles){ if(!m.hit && Math.hypot(x-m.x,y-m.y)<m.r+14){ m.hit=true; m.life=0; score++; addRipple(x,y); break; } } }
+    }
+    function draw(){ ctx.strokeStyle='#102033'; ctx.lineWidth=2; holes.forEach(h=>{ ctx.beginPath(); ctx.arc(h.x,h.y,36,0,Math.PI*2); ctx.stroke(); });
+      moles.forEach(m=>{ ctx.fillStyle=m.hit?'#6ee7a8':'#ffd479'; ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2); ctx.fill(); });
+      drawHUD(`Попаданий: ${score} • Промахов: ${miss}`, 'Появляется круг — ударь пинчем'); }
+    return {init,update,draw};
+  },
+  bubbles(){
+    let bubbles=[], t=0, popped=0;
+    function init(){ bubbles=[]; t=0; popped=0; }
+    function update(dt){ if(paused) return; t+=dt; if(t>360){ t=0; bubbles.push({x:Math.random()*W,y:H+24,r:12+Math.random()*18,v:1+Math.random()*1.6}); }
+      for(const b of bubbles){ b.y-=b.v; }
+      bubbles=bubbles.filter(b=>b.y>-30);
+      if(pointer.pinch){ const x=pointer.rawX*W, y=pointer.rawY*H; for(const b of bubbles){ if(!b.dead && Math.hypot(x-b.x,y-b.y)<b.r+12){ b.dead=true; popped++; addRipple(x,y); } } bubbles=bubbles.filter(b=>!b.dead); }
+    }
+    function draw(){ for(const b of bubbles){ ctx.strokeStyle='#87baff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke(); }
+      drawHUD(`Лопнул: ${popped}`, 'Держи пинч и веди по пузырям'); }
+    return {init,update,draw};
+  },
+  slice(){
+    let fruits=[], t=0, score=0, trail=[];
+    function init(){ fruits=[]; t=0; score=0; trail=[]; }
+    function update(dt){ if(paused) return; t+=dt; if(t>520){ t=0; const x=40+Math.random()*(W-80); const vY=-(5+Math.random()*4); const vX=(Math.random()-.5)*3; fruits.push({x:x,y:H+20,r:18+Math.random()*12,vx:vX,vy:vY,life:6000}); }
+      if(pointer.pinch){ trail.push({x:pointer.rawX*W, y:pointer.rawY*H}); if(trail.length>16) trail.shift(); } else trail.length=0;
+      for(const f of fruits){ f.x+=f.vx; f.y+=f.vy; f.vy+=0.12; f.life-=dt; }
+      if(trail.length>1){ for(const f of fruits){ if(!f.dead){ for(let i=1;i<trail.length;i++){ if(distToSeg(f.x,f.y, trail[i-1].x,trail[i-1].y, trail[i].x,trail[i].y) < f.r+4){ f.dead=true; score+=5; break; } } } }
+      fruits = fruits.filter(f=>!f.dead && f.life>0 && f.y<H+120);
+    }
+    function draw(){ for(const f of fruits){ ctx.fillStyle='#ffd479'; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill(); }
+      if(trail.length>1){ ctx.strokeStyle='#86c9ff'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(trail[0].x,trail[0].y); for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x,trail[i].y); ctx.stroke(); }
+      drawHUD(`Очки: ${score}`, 'Держи пинч и «режь» траекторией'); }
+    return {init,update,draw};
+  }
+};
+
+function distToSeg(px,py, x1,y1,x2,y2){ const A=px-x1, B=py-y1, C=x2-x1, D=y2-y1; const dot=A*C+B*D; const len=C*C+D*D; let t=0; if(len>0) t=dot/len; t=Math.max(0,Math.min(1,t)); const xx=x1+t*C, yy=y1+t*D; return Math.hypot(px-xx,py-yy); }
+
+/******** Main loop ********/ 
+function loop(){ requestAnimationFrame(loop); const t=nowMs(); const dt=t-lastT; lastT=t; rfCount++; if(t-lastRF>500){ renderFPS=(rfCount*1000)/(t-lastRF); rfCount=0; lastRF=t; }
+  ctx.clearRect(0,0,W,H); drawGrid();
+  if(mode==='menu'){ drawMenuHover(); } else if(currentGame){ currentGame.update(dt); currentGame.draw(); }
+  pointer.x = lerp(pointer.x, pointer.rawX, 0.6); pointer.y = lerp(pointer.y, pointer.rawY, 0.6);
+  const cx = pointer.x*W, cy = pointer.y*H; cursor.style.left=cx+'px'; cursor.style.top=cy+'px'; cursor.classList.toggle('pinching', pointer.pinch);
+  if(!paused && mode==='menu' && pointer.pinchDown){ const hovered = getHoveredCard(cx,cy); if(hovered){ setMode(hovered.dataset.id); pointer.pinchDown=false; addRipple(cx,cy); } }
+  if(paused && pointer.pinchDown){ setPause(false); }
+  fpsEl.textContent = `render: ${renderFPS.toFixed(0)} fps • track: ${trackFPS.toFixed(0)} fps`;
+  pointer.pinchDown=false; pointer.pinchUp=false;
+}
+
+function drawGrid(){ ctx.save(); ctx.strokeStyle='#102033'; ctx.lineWidth=1; const step=40; for(let y=0;y<H;y+=step){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); } for(let x=0;x<W;x+=step){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); } ctx.restore(); }
+function drawMenuHover(){ const cx=pointer.x*W, cy=pointer.y*H; for(const el of cardsEl.children){ el.classList.remove('sel'); if(hitCard(el,cx,cy)) el.classList.add('sel'); } }
+function hitCard(el, cx, cy){ const r = el.getBoundingClientRect(), base = app.getBoundingClientRect(); const x0=r.left-base.left, y0=r.top-base.top; return (cx>=x0 && cx<=x0+r.width && cy>=y0 && cy<=y0+r.height); }
+function getHoveredCard(cx,cy){ for(const el of cardsEl.children){ if(hitCard(el,cx,cy)) return el; } return null; }
+function addRipple(x,y){ const d=document.createElement('div'); d.className='ripple'; d.style.left=x+'px'; d.style.top=y+'px'; document.body.appendChild(d); setTimeout(()=>d.remove(), 520); }
+
+// kick off
+resize(); buildMenu(); loop();
+
+// safety
+window.addEventListener('error', e=> showDiag('JS ошибка: '+(e.message||'')));
+window.addEventListener('unhandledrejection', e=> showDiag('Promise отклонён: '+(e.reason && (e.reason.message||e.reason))));
+</script>
 </body>
 </html>

@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Живой 3D без очков — head-coupled parallax</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <style>
+    html, body { margin:0; height:100%; background:#0b0f14; color:#e8eef7; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; }
+    #app { position:fixed; inset:0; overflow:hidden; }
+    canvas#gl { position:absolute; inset:0; width:100%; height:100%; display:block; }
+    #ui {
+      position:absolute; left:12px; top:12px; right:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      background:rgba(10,14,20,.5); backdrop-filter: blur(6px); padding:10px; border:1px solid rgba(255,255,255,.08); border-radius:14px;
+    }
+    #ui .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .btn, select, input[type="range"]{
+      appearance:none; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06);
+      color:#e8eef7; padding:8px 12px; border-radius:12px; font-weight:600; cursor:pointer;
+    }
+    .btn:active{ transform: translateY(1px); }
+    #status { margin-left:auto; font-size:12px; opacity:.8; }
+    #startOverlay{
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(1000px 800px at 50% 40%, rgba(255,255,255,.08), rgba(0,0,0,.7));
+    }
+    #startOverlay .panel{
+      background:rgba(15,20,28,.8); border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:18px; max-width:680px; line-height:1.4; text-align:center;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    }
+    #startOverlay h1{ margin:0 0 8px; font-size:22px; }
+    #startOverlay p{ margin:6px 0; opacity:.9; }
+    #startBtn{ margin-top:12px; font-size:16px; padding:12px 18px; }
+    #video, #dbg { position:absolute; right:12px; bottom:12px; width:220px; height:auto; border-radius:12px; display:none; border:1px solid rgba(255,255,255,.15); }
+    #dbg{ right:244px; background:#000; }
+    #hint { position:absolute; left:12px; bottom:12px; opacity:.75; font-size:12px; }
+    a { color:#9cd0ff; text-decoration:none; border-bottom:1px dotted #9cd0ff40; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gl"></canvas>
+
+  <div id="ui">
+    <div class="row">
+      <button class="btn" id="startCam">Камера: вкл</button>
+      <label>Режим:
+        <select id="mode">
+          <option value="hcp">Без очков (HCP)</option>
+          <option value="anaglyph">Анаглиф (красн/циан)</option>
+        </select>
+      </label>
+      <label>Глубина 3D:
+        <input id="depth" type="range" min="0" max="200" value="80" />
+      </label>
+      <label><input type="checkbox" id="showDbg"> Показать трекинг</label>
+    </div>
+    <div id="status">Готово</div>
+  </div>
+
+  <div id="startOverlay">
+    <div class="panel">
+      <h1>Реалистичный «живой» 3D без очков</h1>
+      <p>Мы отслеживаем глаза через веб-камеру (на устройстве) и смещаем перспективу сцены как в ноутбуках с авто-3D. На обычном экране это даёт сильный эффект глубины.</p>
+      <p><small>Требуется освещённое лицо • Работает по <b>HTTPS</b> • Данные камеры никуда не отправляются</small></p>
+      <button class="btn" id="startBtn">Запустить</button>
+    </div>
+  </div>
+
+  <video id="video" playsinline muted></video>
+  <canvas id="dbg" width="220" height="140"></canvas>
+  <div id="hint">Совет: отсядь на 40–80 см, смотри прямо. Если камеры нет — двигай мышкой для параллакса.</div>
+</div>
+
+<!-- Three.js + эффект анаглифа -->
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js";
+import { AnaglyphEffect } from "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/effects/AnaglyphEffect.js";
+
+// MediaPipe Face Landmarker (глаз/голова)
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5";
+
+const app = document.getElementById('app');
+const canvas = document.getElementById('gl');
+const statusEl = document.getElementById('status');
+const startBtn = document.getElementById('startBtn');
+const startOverlay = document.getElementById('startOverlay');
+const startCamBtn = document.getElementById('startCam');
+const modeSel = document.getElementById('mode');
+const depthRange = document.getElementById('depth');
+const showDbg = document.getElementById('showDbg');
+const video = document.getElementById('video');
+const dbg = document.getElementById('dbg');
+const dbgCtx = dbg.getContext('2d');
+
+let renderer, scene, camera, effect;
+let running = false;
+let faceLandmarker = null;
+let stream = null;
+
+const state = {
+  width: 0, height: 0, devicePR: Math.min(window.devicePixelRatio || 1, 2),
+  hcpActive: true,
+  targetCam = new THREE.Vector3(0, 1.4, 5.5),
+  lookAt = new THREE.Vector3(0, 1.2, 0),
+  currentCam = new THREE.Vector3(),
+  depthFactor: 0.8, // 0..2 (ползунок 0..200 -> 0..2)
+  face: { ok:false, cx:0.5, cy:0.5, eyeDist: 150, ts:0 },
+  mouse: { x:0.5, y:0.5, active:false }
+};
+
+const lerp = (a,b,t)=> a+(b-a)*t;
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+init3D();
+bindUI();
+onResize();
+animate();
+
+async function init3D(){
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setPixelRatio(state.devicePR);
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x060a10);
+  scene.fog = new THREE.Fog(0x060a10, 18, 38);
+
+  camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
+  camera.position.copy(state.targetCam);
+  camera.lookAt(state.lookAt);
+
+  effect = new AnaglyphEffect( renderer );
+  effect.setEyeSeparation(0.06);
+
+  // Свет
+  const hemi = new THREE.HemisphereLight(0xbdd7ff, 0x0a0f14, 0.9);
+  scene.add(hemi);
+  const key = new THREE.DirectionalLight(0xffffff, 1.1);
+  key.position.set(5,7,4);
+  key.castShadow = false;
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x88ccff, .6);
+  rim.position.set(-6,4,-3);
+  scene.add(rim);
+
+  // Пол + сетка
+  {
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(200,200),
+      new THREE.MeshStandardMaterial({ color:0x0e1420, metalness:.1, roughness:.8 })
+    );
+    plane.rotation.x = -Math.PI/2;
+    plane.position.y = 0;
+    scene.add(plane);
+
+    const grid = new THREE.GridHelper(200, 80, 0x1c2a3a, 0x182330);
+    grid.position.y = 0.002;
+    scene.add(grid);
+  }
+
+  // Красивые объекты (торус-узел, стеклянные сферы, парящие кубы)
+  const group = new THREE.Group();
+  scene.add(group);
+
+  // Материалы
+  const metal = new THREE.MeshStandardMaterial({ color:0x87baff, metalness:.9, roughness:.2 });
+  const glass = new THREE.MeshPhysicalMaterial({ color:0xffffff, metalness:0, roughness:.1, transmission:.95, thickness:0.8, transparent:true });
+
+  // Торус-узел
+  const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1, .36, 256, 32), metal);
+  knot.position.set(0, 1.5, 0);
+  knot.castShadow = false; knot.receiveShadow = false;
+  group.add(knot);
+
+  // Сферы
+  for(let i=0;i<8;i++){
+    const s = new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(.18,.34), 48, 32), glass);
+    s.position.set(THREE.MathUtils.randFloatSpread(6), THREE.MathUtils.randFloat(.6,2.2), THREE.MathUtils.randFloatSpread(6));
+    group.add(s);
+  }
+
+  // Кубы
+  const boxMat = new THREE.MeshStandardMaterial({ color:0x7ef7d2, metalness:.6, roughness:.35 });
+  for(let i=0;i<30;i++){
+    const b = new THREE.Mesh(new THREE.BoxGeometry(.4,.4,.4), boxMat);
+    b.position.set(THREE.MathUtils.randFloatSpread(10), THREE.MathUtils.randFloat(.3,3.5), THREE.MathUtils.randFloatSpread(10));
+    b.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
+    group.add(b);
+  }
+
+  // Вращение
+  const clock = new THREE.Clock();
+  const tick = ()=>{
+    const t = clock.getElapsedTime();
+    knot.rotation.x = t*.35;
+    knot.rotation.y = t*.22;
+    group.children.forEach((o,idx)=>{
+      if(o===knot) return;
+      o.position.y += Math.sin(t*0.9 + idx)*0.0009;
+      o.rotation.y += 0.003*(idx%3?1:-1);
+    });
+  };
+  renderer.setAnimationLoop(()=>{
+    tick();
+    render();
+  });
+}
+
+function bindUI(){
+  window.addEventListener('resize', onResize);
+  startBtn.addEventListener('click', startAll, { once:true });
+  startCamBtn.addEventListener('click', async ()=>{
+    if(stream){ stopCamera(); startCamBtn.textContent = 'Камера: выкл'; }
+    else { await startCamera(); startCamBtn.textContent = 'Камера: вкл'; }
+  });
+
+  modeSel.addEventListener('change', ()=>{
+    state.hcpActive = (modeSel.value==='hcp');
+    status(`Режим: ${state.hcpActive?'HCP (без очков)':'анаглиф'}`);
+  });
+  depthRange.addEventListener('input', ()=>{
+    state.depthFactor = depthRange.value/100;
+    effect.setEyeSeparation( clamp(0.06*state.depthFactor, 0.0, 0.12) );
+  });
+  showDbg.addEventListener('change', ()=>{
+    const show = showDbg.checked;
+    video.style.display = show?'block':'none';
+    dbg.style.display = show?'block':'none';
+  });
+
+  // Параллакс мышью (если камера недоступна)
+  window.addEventListener('pointermove', (e)=>{
+    const r = app.getBoundingClientRect();
+    state.mouse.x = clamp((e.clientX - r.left)/r.width, 0, 1);
+    state.mouse.y = clamp((e.clientY - r.top)/r.height, 0, 1);
+    state.mouse.active = true;
+  });
+}
+
+function onResize(){
+  state.width = app.clientWidth;
+  state.height = app.clientHeight;
+  const aspect = state.width/state.height;
+  camera.aspect = aspect;
+  camera.updateProjectionMatrix();
+  renderer.setSize(state.width, state.height, false);
+  effect.setSize(state.width, state.height);
+}
+
+async function startAll(){
+  startOverlay.style.display = 'none';
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost'){
+    alert('Нужен HTTPS для доступа к камере.\nОткрой эту страницу по https:// или запусти локально.');
+  }
+  await startCamera(); // не критично, если не удастся — останется мышь
+  await initFaceLandmarker();
+  running = true;
+  status('Запущено');
+}
+
+async function startCamera(){
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} }, audio:false });
+    video.srcObject = stream;
+    await video.play();
+    video.style.display = showDbg.checked?'block':'none';
+    status('Камера: ок');
+  }catch(err){
+    status('Нет доступа к камере: ' + err.name);
+    console.warn(err);
+  }
+}
+
+function stopCamera(){
+  if(stream){
+    stream.getTracks().forEach(t=>t.stop());
+    stream = null;
+  }
+}
+
+async function initFaceLandmarker(){
+  try{
+    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5/wasm");
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+      },
+      runningMode: "VIDEO",
+      numFaces: 1
+    });
+    status('Трекинг лица: ок');
+  }catch(err){
+    status('Не удалось инициализировать трекинг лица');
+    console.error(err);
+  }
+}
+
+// Основной рендер
+function render(){
+  // Обновляем положение камеры из трекинга или мыши
+  updateHeadCoupledPerspective();
+
+  if(state.hcpActive){
+    renderer.render(scene, camera);
+  }else{
+    effect.render(scene, camera);
+  }
+}
+
+// Вычисление «живого» сдвига камеры
+let _sx=0, _sy=0, _sz=0;
+function updateHeadCoupledPerspective(){
+  const now = performance.now();
+
+  // 1) попытка считать лицо
+  if(faceLandmarker && video.readyState>=2 && stream){
+    const res = faceLandmarker.detectForVideo(video, now);
+    if(res && res.faceLandmarks && res.faceLandmarks.length){
+      const lm = res.faceLandmarks[0]; // 468 точек
+      // Наружние уголки глаз: 33 (левый), 263 (правый)
+      const L = lm[33], R = lm[263];
+      const cx = (L.x + R.x)/2; // норм. 0..1
+      const cy = (L.y + R.y)/2;
+      const eyeDist = Math.hypot(L.x - R.x, L.y - R.y);
+      state.face.ok = true;
+      state.face.cx = 1 - cx;        // зеркалим, чтобы «влево» = «влево»
+      state.face.cy = cy;
+      state.face.eyeDist = eyeDist;
+      state.face.ts = now;
+
+      if(showDbg.checked){
+        dbgCtx.drawImage(video, 0, 0, dbg.width, dbg.height);
+        dbgCtx.fillStyle = "#00ff90";
+        dbgCtx.beginPath();
+        dbgCtx.arc(dbg.width*(1-L.x), dbg.height*L.y, 3, 0, Math.PI*2); dbgCtx.fill();
+        dbgCtx.beginPath();
+        dbgCtx.arc(dbg.width*(1-R.x), dbg.height*R.y, 3, 0, Math.PI*2); dbgCtx.fill();
+      }
+    }else{
+      state.face.ok = (now - state.face.ts) < 500; // небольшой hold
+    }
+  }
+
+  // 2) Нормализуем источники (лицо или мышь)
+  let nx = 0.5, ny = 0.5, distScale = 1;
+  if(state.face.ok){
+    nx = clamp(state.face.cx, 0, 1);
+    ny = clamp(state.face.cy, 0, 1);
+    // Чем меньше расстояние между глазами в кадре — тем дальше пользователь => уменьшаем амплитуду
+    const d = clamp(state.face.eyeDist, 0.08, 0.35);
+    distScale = THREE.MathUtils.mapLinear(d, 0.08, 0.35, 1.8, 0.6);
+  }else if(state.mouse.active){
+    nx = state.mouse.x;
+    ny = state.mouse.y;
+    distScale = 1;
+  }
+
+  // 3) Переводим в смещения камеры
+  const maxX = 0.9 * state.depthFactor * distScale;  // «глубина» по X
+  const maxY = 0.6 * state.depthFactor * distScale;  // «глубина» по Y
+  const maxZ = 0.9 * state.depthFactor * distScale;  // «наезд/отъезд» лёгкий
+
+  const targetX = THREE.MathUtils.mapLinear(nx, 0,1, -maxX, maxX);
+  const targetY = THREE.MathUtils.mapLinear(ny, 0,1,  maxY, -maxY);
+  const targetZ = state.targetCam.z + THREE.MathUtils.mapLinear(nx, 0,1, maxZ, -maxZ)*0.15;
+
+  // Сглаживание
+  _sx = lerp(_sx, targetX, 0.08);
+  _sy = lerp(_sy, targetY, 0.08);
+  _sz = lerp(_sz, targetZ, 0.08);
+
+  camera.position.set(_sx, 1.4 + _sy*0.3, _sz);
+  camera.lookAt(state.lookAt.x + _sx*0.2, state.lookAt.y + _sy*0.2, state.lookAt.z);
+}
+
+// Утилиты статуса
+let _statusTimer;
+function status(msg){
+  statusEl.textContent = msg;
+  clearTimeout(_statusTimer);
+  _statusTimer = setTimeout(()=>{ statusEl.textContent = 'Готово'; }, 4000);
+}
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HandGames Pro - Жестовое управление 120FPS</title>
+    <title>HandGames Pro - Жестовое управление</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         
@@ -11,7 +11,6 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            cursor: none !important; /* УБИРАЕМ КУРСОР ВЕЗДЕ */
         }
 
         body {
@@ -20,6 +19,11 @@
             color: white;
             overflow: hidden;
             height: 100vh;
+            cursor: auto; /* ПОКАЗЫВАЕМ МЫШЬ НА СТАРТЕ */
+        }
+
+        body.game-mode {
+            cursor: none !important; /* УБИРАЕМ ТОЛЬКО В ИГРЕ */
         }
 
         .bg-overlay {
@@ -41,7 +45,7 @@
             z-index: 1;
         }
 
-        /* Стартовый экран */
+        /* Стартовый экран с КРАСИВЫМИ стилями */
         #startScreen {
             position: fixed;
             top: 0;
@@ -51,7 +55,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(15, 15, 35, 0.95);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.9), rgba(118, 75, 162, 0.9));
             backdrop-filter: blur(20px);
             z-index: 100;
         }
@@ -59,33 +63,70 @@
         .start-container {
             text-align: center;
             background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            padding: 50px;
+            backdrop-filter: blur(30px);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            padding: 60px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .start-container:hover {
+            transform: translateY(-5px);
         }
 
         .start-container h1 {
-            font-size: 3rem;
+            font-size: 3.5rem;
             font-weight: 900;
-            color: #667eea;
+            background: linear-gradient(135deg, #fff, #667eea);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
             margin-bottom: 20px;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
         }
 
         .start-btn {
             background: linear-gradient(135deg, #667eea, #764ba2);
-            border: none;
-            border-radius: 15px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
             color: white;
-            font-size: 1.2rem;
+            font-size: 1.4rem;
             font-weight: 700;
-            padding: 20px 40px;
-            transition: all 0.3s ease;
+            padding: 25px 50px;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.4);
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+
+        .start-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .start-btn:hover::before {
+            left: 100%;
         }
 
         .loading-text {
-            margin-top: 20px;
-            color: rgba(255, 255, 255, 0.7);
+            margin-top: 25px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.1rem;
         }
 
         /* Меню игр */
@@ -110,95 +151,86 @@
         }
 
         .menu-title {
-            font-size: 2.5rem;
+            font-size: 2.8rem;
             font-weight: 900;
             margin-bottom: 40px;
-            color: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 30px rgba(102, 126, 234, 0.5);
         }
 
         .games-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 25px;
+            gap: 30px;
         }
 
         .game-card {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(20px);
             border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 15px;
-            padding: 30px;
-            transition: all 0.3s ease;
-            height: 180px;
+            border-radius: 20px;
+            padding: 35px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            height: 200px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
 
         .game-card:hover, .game-card.hovered {
-            transform: translateY(-5px);
+            transform: translateY(-10px) scale(1.02);
             border-color: #667eea;
-            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 25px 50px rgba(102, 126, 234, 0.4);
+        }
+
+        .game-card:hover::before, .game-card.hovered::before {
+            opacity: 1;
         }
 
         .game-card.selected {
             background: rgba(102, 126, 234, 0.3);
-            transform: scale(1.05);
+            transform: scale(1.08);
+            border-color: #fff;
         }
 
         .game-icon {
-            font-size: 3rem;
+            font-size: 3.5rem;
             margin-bottom: 15px;
+            filter: drop-shadow(0 5px 10px rgba(0,0,0,0.3));
         }
 
         .game-title {
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             font-weight: 700;
             margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
 
         .game-desc {
             color: rgba(255, 255, 255, 0.8);
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            text-align: center;
         }
 
-        /* Настройки */
-        #settingsPanel {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 15px;
-            padding: 20px;
-            z-index: 85;
-            display: none;
-        }
-
-        .setting-item {
-            margin-bottom: 15px;
-        }
-
-        .setting-item label {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-        }
-
-        .setting-item input[type="range"] {
-            width: 200px;
-            accent-color: #667eea;
-        }
-
-        .setting-item input[type="checkbox"] {
-            accent-color: #667eea;
-            width: 18px;
-            height: 18px;
-        }
-
-        /* HUD */
+        /* HUD улучшенный */
         #hud {
             position: fixed;
             top: 20px;
@@ -212,18 +244,18 @@
 
         .hud-panel {
             background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(15px);
+            backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 12px;
-            padding: 15px;
+            border-radius: 15px;
+            padding: 20px;
             font-size: 0.9rem;
         }
 
         .hud-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 5px;
+            gap: 10px;
+            margin-bottom: 8px;
         }
 
         .status-dot {
@@ -231,7 +263,7 @@
             height: 12px;
             border-radius: 50%;
             background: #ef4444;
-            transition: background 0.3s ease;
+            transition: all 0.3s ease;
         }
 
         .status-dot.active {
@@ -241,23 +273,30 @@
         }
 
         @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.2); }
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
         }
 
         .hud-controls {
             display: flex;
-            gap: 10px;
+            gap: 12px;
         }
 
         .hud-btn {
             background: rgba(0, 0, 0, 0.8);
             border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 8px;
+            border-radius: 10px;
             color: white;
-            padding: 8px 15px;
-            font-size: 0.8rem;
+            padding: 12px 18px;
+            font-size: 0.9rem;
             pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .hud-btn:hover {
+            background: rgba(102, 126, 234, 0.8);
+            transform: translateY(-2px);
         }
 
         #gameInfo {
@@ -268,21 +307,22 @@
             background: rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 15px;
-            padding: 20px 30px;
+            border-radius: 20px;
+            padding: 25px 35px;
             text-align: center;
             z-index: 70;
             display: none;
         }
 
         .score {
-            font-size: 1.3rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: #f59e0b;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
         }
 
-        /* Кастомный курсор руки */
+        /* Улучшенный курсор */
         #handCursor {
             position: fixed;
             width: 35px;
@@ -294,6 +334,7 @@
             z-index: 1000;
             transition: all 0.05s ease;
             box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            display: none;
         }
 
         #handCursor.pinching {
@@ -333,13 +374,14 @@
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 160px;
-            height: 120px;
-            border-radius: 10px;
+            width: 200px;
+            height: 150px;
+            border-radius: 15px;
             border: 2px solid rgba(255, 255, 255, 0.3);
             overflow: hidden;
             display: none;
             z-index: 60;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
 
         #video {
@@ -358,8 +400,8 @@
     <div id="startScreen">
         <div class="start-container">
             <h1>🎮 HANDGAMES PRO</h1>
-            <p>Управляй играми жестами руки в 120 FPS</p>
-            <button class="start-btn" onclick="initSystem()">🚀 ЗАПУСТИТЬ</button>
+            <p>Управляй играми жестами руки в высоком качестве</p>
+            <button class="start-btn" onclick="initSystem()">🚀 ЗАПУСТИТЬ ИГРЫ</button>
             <div class="loading-text" id="loadingText"></div>
         </div>
     </div>
@@ -372,22 +414,22 @@
                 <div class="game-card" data-game="breakout">
                     <span class="game-icon">🏓</span>
                     <h3 class="game-title">АРКАНОИД</h3>
-                    <p class="game-desc">Управляй платформой рукой</p>
+                    <p class="game-desc">Управляй платформой рукой, разбивай блоки</p>
                 </div>
                 <div class="game-card" data-game="shooter">
                     <span class="game-icon">🚀</span>
                     <h3 class="game-title">КОСМО ШУТЕР</h3>
-                    <p class="game-desc">Стреляй пинчем</p>
+                    <p class="game-desc">Стреляй пинчем по врагам из космоса</p>
                 </div>
                 <div class="game-card" data-game="snake">
                     <span class="game-icon">🐍</span>
-                    <h3 class="game-title">ЗМЕЙКА</h3>
-                    <p class="game-desc">Поворачивай пинчем</p>
+                    <h3 class="game-title">НЕОН ЗМЕЙКА</h3>
+                    <p class="game-desc">Поворачивай пинчем, собирай еду</p>
                 </div>
                 <div class="game-card" data-game="draw">
                     <span class="game-icon">🎨</span>
-                    <h3 class="game-title">РИСОВАЛКА</h3>
-                    <p class="game-desc">Рисуй жестами руки</p>
+                    <h3 class="game-title">ТВОРЧЕСКАЯ РИСОВАЛКА</h3>
+                    <p class="game-desc">Рисуй плавными линиями жестами</p>
                 </div>
             </div>
         </div>
@@ -407,34 +449,13 @@
             <div class="hud-item">
                 <span>FPS: <span id="fpsDisplay">0</span></span>
             </div>
+            <div class="hud-item">
+                <span>РАССТОЯНИЕ: <span id="pinchDistance">---</span></span>
+            </div>
         </div>
         <div class="hud-controls">
             <button class="hud-btn" id="backBtn" onclick="showMenu()" style="display: none;">← НАЗАД</button>
-            <button class="hud-btn" onclick="toggleSettings()">⚙️ НАСТРОЙКИ</button>
             <button class="hud-btn" onclick="toggleDebug()">📹 ВИДЕО</button>
-        </div>
-    </div>
-
-    <!-- Настройки -->
-    <div id="settingsPanel">
-        <h3>⚙️ НАСТРОЙКИ</h3>
-        <div class="setting-item">
-            <label>Чувствительность пинча: <span id="pinchSensValue">50</span></label>
-            <input type="range" id="pinchSensitivity" min="20" max="80" value="50">
-        </div>
-        <div class="setting-item">
-            <label>Плавность движения: <span id="smoothnessValue">70</span></label>
-            <input type="range" id="smoothness" min="30" max="95" value="70">
-        </div>
-        <div class="setting-item">
-            <label>
-                <input type="checkbox" id="showTrail" checked> Показывать след
-            </label>
-        </div>
-        <div class="setting-item">
-            <label>
-                <input type="checkbox" id="showEffects" checked> Спецэффекты
-            </label>
         </div>
     </div>
 
@@ -469,20 +490,8 @@
         let isPinching = false;
         let lastPinchState = false;
         
-        // 120 FPS переменные
         let frameCount = 0;
         let lastFrameTime = performance.now();
-        let lastHandUpdate = 0;
-        const TARGET_FPS = 120;
-        const HAND_INTERVAL = 1000 / 60; // Трекинг 60 FPS, рендер 120 FPS
-
-        // Настройки
-        let settings = {
-            pinchSensitivity: 50,
-            smoothness: 70,
-            showTrail: true,
-            showEffects: true
-        };
 
         // ===== РАЗМЕРЫ КАНВАСА =====
         function resizeCanvas() {
@@ -499,13 +508,13 @@
                 const startBtn = document.querySelector('.start-btn');
                 
                 startBtn.style.display = 'none';
-                loadingText.textContent = '📷 Запуск камеры в 120 FPS...';
+                loadingText.textContent = '📷 Запуск камеры...';
 
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
                         width: { ideal: 640 }, 
                         height: { ideal: 480 },
-                        frameRate: { ideal: 60 } // Максимум для веб-камеры
+                        frameRate: { ideal: 60 }
                     },
                     audio: false
                 });
@@ -521,7 +530,7 @@
 
                 hands.setOptions({
                     maxNumHands: 1,
-                    modelComplexity: 0, // Быстрая модель для 120 FPS
+                    modelComplexity: 0,
                     minDetectionConfidence: 0.8,
                     minTrackingConfidence: 0.6,
                     selfieMode: true
@@ -531,11 +540,7 @@
 
                 camera = new Camera(video, {
                     onFrame: async () => {
-                        const now = performance.now();
-                        if (now - lastHandUpdate >= HAND_INTERVAL) {
-                            await hands.send({ image: video });
-                            lastHandUpdate = now;
-                        }
+                        await hands.send({ image: video });
                         updateFPS();
                     },
                     width: 640,
@@ -544,12 +549,12 @@
 
                 await camera.start();
 
-                loadingText.textContent = '✅ Готово! Запуск в 120 FPS!';
+                loadingText.textContent = '✅ Готово!';
                 
                 setTimeout(() => {
                     document.getElementById('startScreen').style.display = 'none';
+                    document.body.classList.add('game-mode'); // УБИРАЕМ КУРСОР
                     showMenu();
-                    initSettings();
                 }, 1000);
 
             } catch (error) {
@@ -575,54 +580,51 @@
                 document.getElementById('handStatus').textContent = '❌';
                 document.getElementById('pinchDot').classList.remove('active');
                 document.getElementById('pinchStatus').textContent = '❌';
+                document.getElementById('pinchDistance').textContent = '---';
                 
                 handCursor.style.display = 'none';
             }
         }
 
-        // ===== СУПЕР ПРОСТОЙ И НАДЕЖНЫЙ ПИНЧ =====
+        // ===== НОВЫЙ АЛГОРИТМ ПИНЧА (ИЗ ИССЛЕДОВАНИЙ) =====
         function processHandData(landmarks) {
-            const indexTip = landmarks[8];   // Указательный
-            const thumbTip = landmarks[11];   // Большой
+            const indexTip = landmarks[8];   // Кончик указательного
+            const thumbTip = landmarks[12];   // Кончик большого
+            const indexMcp = landmarks[13];   // Основание указательного
+            const thumbMcp = landmarks[14];   // Основание большого
 
             // КООРДИНАТЫ БЕЗ ЗЕРКАЛА
-            const rawX = indexTip.x * window.innerWidth;
-            const rawY = indexTip.y * window.innerHeight;
+            const x = indexTip.x * window.innerWidth;
+            const y = indexTip.y * window.innerHeight;
 
-            // Плавность движения из настроек
-            const smoothFactor = settings.smoothness / 100;
-            
-            let x, y;
-            if (handData) {
-                x = handData.x + (rawX - handData.x) * (1 - smoothFactor);
-                y = handData.y + (rawY - handData.y) * (1 - smoothFactor);
-            } else {
-                x = rawX;
-                y = rawY;
-            }
+            // НОВЫЙ АЛГОРИТМ ПИНЧА - ОТДЕЛЬНЫЕ РАССТОЯНИЯ ПО ОСЯМ
+            const distance = {
+                x: Math.abs(indexTip.x - thumbTip.x),
+                y: Math.abs(indexTip.y - thumbTip.y),
+                z: Math.abs((indexTip.z || 0) - (thumbTip.z || 0))
+            };
 
-            // МАКСИМАЛЬНО ПРОСТОЙ ПИНЧ - ПРЯМОЕ РАССТОЯНИЕ В ПИКСЕЛЯХ
-            const pixelDistance = Math.sqrt(
-                Math.pow((indexTip.x - thumbTip.x) * window.innerWidth, 2) +
-                Math.pow((indexTip.y - thumbTip.y) * window.innerHeight, 2)
-            );
+            // ПОРОГИ ИЗ ИССЛЕДОВАНИЙ (БОЛЕЕ НАДЕЖНЫЕ)
+            const areFingersCloseEnough = 
+                distance.x < 0.06 && 
+                distance.y < 0.06 && 
+                distance.z < 0.08;
 
             lastPinchState = isPinching;
-            
-            // Чувствительность из настроек (20-80 пикселей)
-            const threshold = settings.pinchSensitivity;
-            isPinching = pixelDistance < threshold;
+            isPinching = areFingersCloseEnough;
 
             handData = {
                 x: x,
                 y: y,
-                rawX: rawX,
-                rawY: rawY,
                 isPinching: isPinching,
                 justPinched: isPinching && !lastPinchState,
                 justReleased: !isPinching && lastPinchState,
-                pixelDistance: pixelDistance
+                distance: distance
             };
+
+            // ОТЛАДОЧНАЯ ИНФОРМАЦИЯ
+            const totalDist = Math.sqrt(distance.x * distance.x + distance.y * distance.y + distance.z * distance.z);
+            document.getElementById('pinchDistance').textContent = totalDist.toFixed(3);
 
             // Курсор
             handCursor.style.display = 'block';
@@ -682,42 +684,6 @@
             });
         }
 
-        // ===== НАСТРОЙКИ =====
-        function initSettings() {
-            const pinchSens = document.getElementById('pinchSensitivity');
-            const smoothness = document.getElementById('smoothness');
-            const showTrail = document.getElementById('showTrail');
-            const showEffects = document.getElementById('showEffects');
-
-            pinchSens.addEventListener('input', (e) => {
-                settings.pinchSensitivity = parseInt(e.target.value);
-                document.getElementById('pinchSensValue').textContent = e.target.value;
-            });
-
-            smoothness.addEventListener('input', (e) => {
-                settings.smoothness = parseInt(e.target.value);
-                document.getElementById('smoothnessValue').textContent = e.target.value;
-            });
-
-            showTrail.addEventListener('change', (e) => {
-                settings.showTrail = e.target.checked;
-            });
-
-            showEffects.addEventListener('change', (e) => {
-                settings.showEffects = e.target.checked;
-            });
-        }
-
-        function toggleSettings() {
-            const panel = document.getElementById('settingsPanel');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function toggleDebug() {
-            const debug = document.getElementById('videoDebug');
-            debug.style.display = debug.style.display === 'none' ? 'block' : 'none';
-        }
-
         // ===== НАВИГАЦИЯ =====
         function showMenu() {
             gameState = 'menu';
@@ -750,10 +716,13 @@
             }
         }
 
+        function toggleDebug() {
+            const debug = document.getElementById('videoDebug');
+            debug.style.display = debug.style.display === 'none' ? 'block' : 'none';
+        }
+
         // ===== ЭФФЕКТЫ =====
         function createRipple(x, y) {
-            if (!settings.showEffects) return;
-            
             const ripple = document.createElement('div');
             ripple.className = 'ripple';
             ripple.style.left = (x - 20) + 'px';
@@ -779,8 +748,8 @@
         // ===== 1. АРКАНОИД =====
         class BreakoutGame {
             constructor() {
-                this.paddle = { x: canvas.width / 2, y: canvas.height - 50, width: 100, height: 15 };
-                this.ball = { x: canvas.width / 2, y: canvas.height / 2, dx: 6, dy: -6, radius: 8, trail: [] };
+                this.paddle = { x: canvas.width / 2, y: canvas.height - 50, width: 120, height: 20 };
+                this.ball = { x: canvas.width / 2, y: canvas.height / 2, dx: 6, dy: -6, radius: 10 };
                 this.bricks = [];
                 this.score = 0;
                 this.level = 1;
@@ -792,7 +761,7 @@
                 const rows = 5;
                 const cols = 8;
                 const brickWidth = (canvas.width - 100) / cols;
-                const brickHeight = 25;
+                const brickHeight = 30;
                 const colors = ['#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b'];
 
                 for (let row = 0; row < rows; row++) {
@@ -811,21 +780,12 @@
             update() {
                 if (!handData) return;
 
-                // Управление платформой
                 this.paddle.x = handData.x - this.paddle.width / 2;
                 this.paddle.x = Math.max(0, Math.min(canvas.width - this.paddle.width, this.paddle.x));
 
-                // Движение мяча
                 this.ball.x += this.ball.dx;
                 this.ball.y += this.ball.dy;
 
-                // След мяча
-                if (settings.showTrail) {
-                    this.ball.trail.push({ x: this.ball.x, y: this.ball.y });
-                    if (this.ball.trail.length > 10) this.ball.trail.shift();
-                }
-
-                // Отскоки
                 if (this.ball.x <= this.ball.radius || this.ball.x >= canvas.width - this.ball.radius) {
                     this.ball.dx = -this.ball.dx;
                 }
@@ -833,7 +793,6 @@
                     this.ball.dy = -this.ball.dy;
                 }
 
-                // Отскок от платформы
                 if (this.ball.y + this.ball.radius >= this.paddle.y &&
                     this.ball.x >= this.paddle.x &&
                     this.ball.x <= this.paddle.x + this.paddle.width &&
@@ -841,10 +800,9 @@
                     
                     this.ball.dy = -Math.abs(this.ball.dy);
                     const hitPos = (this.ball.x - this.paddle.x) / this.paddle.width;
-                    this.ball.dx = (hitPos - 0.5) * 8;
+                    this.ball.dx = (hitPos - 0.5) * 10;
                 }
 
-                // Столкновения с кирпичами
                 this.bricks = this.bricks.filter(brick => {
                     if (this.ball.x + this.ball.radius >= brick.x &&
                         this.ball.x - this.ball.radius <= brick.x + brick.width &&
@@ -875,39 +833,24 @@
             render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // След мяча
-                if (settings.showTrail && this.ball.trail.length > 1) {
-                    ctx.strokeStyle = '#f59e0b';
-                    ctx.lineWidth = 3;
-                    ctx.lineCap = 'round';
-                    for (let i = 1; i < this.ball.trail.length; i++) {
-                        ctx.globalAlpha = i / this.ball.trail.length;
-                        ctx.beginPath();
-                        ctx.moveTo(this.ball.trail[i-1].x, this.ball.trail[i-1].y);
-                        ctx.lineTo(this.ball.trail[i].x, this.ball.trail[i].y);
-                        ctx.stroke();
-                    }
-                    ctx.globalAlpha = 1;
-                }
-
-                // Кирпичи
+                // Кирпичи с неоновым эффектом
                 this.bricks.forEach(brick => {
                     ctx.fillStyle = brick.color;
                     ctx.shadowColor = brick.color;
-                    ctx.shadowBlur = 10;
+                    ctx.shadowBlur = 15;
                     ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
                 });
 
                 // Платформа
                 ctx.fillStyle = '#667eea';
                 ctx.shadowColor = '#667eea';
-                ctx.shadowBlur = 15;
+                ctx.shadowBlur = 20;
                 ctx.fillRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
 
                 // Мяч
                 ctx.fillStyle = '#f59e0b';
                 ctx.shadowColor = '#f59e0b';
-                ctx.shadowBlur = 15;
+                ctx.shadowBlur = 20;
                 ctx.beginPath();
                 ctx.arc(this.ball.x, this.ball.y, this.ball.radius, 0, Math.PI * 2);
                 ctx.fill();
@@ -916,7 +859,7 @@
 
             updateUI() {
                 document.getElementById('scoreDisplay').textContent = `ОЧКИ: ${this.score}`;
-                document.getElementById('gameInstructions').textContent = `Уровень: ${this.level}`;
+                document.getElementById('gameInstructions').textContent = `Уровень: ${this.level} | Управляй рукой!`;
             }
 
             gameOver() {
@@ -930,7 +873,7 @@
         // ===== 2. ШУТЕР =====
         class ShooterGame {
             constructor() {
-                this.player = { x: canvas.width / 2, y: canvas.height - 80, size: 20 };
+                this.player = { x: canvas.width / 2, y: canvas.height - 80, size: 25 };
                 this.bullets = [];
                 this.enemies = [];
                 this.score = 0;
@@ -946,20 +889,20 @@
                 this.player.x = handData.x;
                 this.player.x = Math.max(this.player.size, Math.min(canvas.width - this.player.size, this.player.x));
 
-                if (handData.isPinching && now - this.lastShot > 100) {
+                if (handData.isPinching && now - this.lastShot > 150) {
                     this.bullets.push({
                         x: this.player.x,
                         y: this.player.y - this.player.size,
-                        speed: -10
+                        speed: -12
                     });
                     this.lastShot = now;
                 }
 
-                if (now - this.lastEnemy > 800) {
+                if (now - this.lastEnemy > 1000) {
                     this.enemies.push({
                         x: Math.random() * (canvas.width - 40) + 20,
                         y: -20,
-                        speed: 3 + Math.random() * 3,
+                        speed: 3 + Math.random() * 4,
                         size: 15 + Math.random() * 10,
                         color: ['#ef4444', '#8b5cf6', '#06b6d4'][Math.floor(Math.random() * 3)]
                     });
@@ -997,10 +940,14 @@
             render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+                // Космический фон
+                ctx.fillStyle = 'rgba(10, 10, 30, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
                 // Игрок
                 ctx.fillStyle = '#667eea';
                 ctx.shadowColor = '#667eea';
-                ctx.shadowBlur = 15;
+                ctx.shadowBlur = 20;
                 ctx.beginPath();
                 ctx.moveTo(this.player.x, this.player.y - this.player.size);
                 ctx.lineTo(this.player.x - this.player.size, this.player.y + this.player.size);
@@ -1013,9 +960,9 @@
                 this.bullets.forEach(bullet => {
                     ctx.fillStyle = '#f59e0b';
                     ctx.shadowColor = '#f59e0b';
-                    ctx.shadowBlur = 10;
+                    ctx.shadowBlur = 15;
                     ctx.beginPath();
-                    ctx.arc(bullet.x, bullet.y, 3, 0, Math.PI * 2);
+                    ctx.arc(bullet.x, bullet.y, 4, 0, Math.PI * 2);
                     ctx.fill();
                 });
 
@@ -1023,7 +970,7 @@
                 this.enemies.forEach(enemy => {
                     ctx.fillStyle = enemy.color;
                     ctx.shadowColor = enemy.color;
-                    ctx.shadowBlur = 10;
+                    ctx.shadowBlur = 15;
                     ctx.beginPath();
                     ctx.arc(enemy.x, enemy.y, enemy.size, 0, Math.PI * 2);
                     ctx.fill();
@@ -1033,7 +980,7 @@
 
             updateUI() {
                 document.getElementById('scoreDisplay').textContent = `ОЧКИ: ${this.score}`;
-                document.getElementById('gameInstructions').textContent = 'Пинч = стрельба';
+                document.getElementById('gameInstructions').textContent = 'Пинч = стрельба | Уклоняйся!';
             }
         }
 
@@ -1070,7 +1017,7 @@
 
                 const now = Date.now();
 
-                if (handData.justPinched && now - this.lastDirectionChange > 150) {
+                if (handData.justPinched && now - this.lastDirectionChange > 200) {
                     const head = this.snake[0];
                     const dx = handData.x - head.x - this.cellSize/2;
                     const dy = handData.y - head.y - this.cellSize/2;
@@ -1112,7 +1059,7 @@
 
                     if (head.x === this.food.x && head.y === this.food.y) {
                         this.score += 10;
-                        this.speed = Math.max(100, this.speed - 3);
+                        this.speed = Math.max(120, this.speed - 5);
                         this.food = this.generateFood();
                     } else {
                         this.snake.pop();
@@ -1127,16 +1074,32 @@
             render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+                // Неоновая сетка
+                ctx.strokeStyle = 'rgba(102, 126, 234, 0.2)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < canvas.width; x += this.cellSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < canvas.height; y += this.cellSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+
                 // Змея
                 this.snake.forEach((segment, index) => {
                     if (index === 0) {
                         ctx.fillStyle = '#667eea';
                         ctx.shadowColor = '#667eea';
-                        ctx.shadowBlur = 15;
+                        ctx.shadowBlur = 20;
                     } else {
                         ctx.fillStyle = '#06b6d4';
                         ctx.shadowColor = '#06b6d4';
-                        ctx.shadowBlur = 10;
+                        ctx.shadowBlur = 15;
                     }
                     ctx.fillRect(segment.x + 2, segment.y + 2, this.cellSize - 4, this.cellSize - 4);
                 });
@@ -1144,7 +1107,7 @@
                 // Еда
                 ctx.fillStyle = '#f59e0b';
                 ctx.shadowColor = '#f59e0b';
-                ctx.shadowBlur = 20;
+                ctx.shadowBlur = 25;
                 ctx.beginPath();
                 ctx.arc(
                     this.food.x + this.cellSize/2,
@@ -1159,7 +1122,7 @@
 
             updateUI() {
                 document.getElementById('scoreDisplay').textContent = `ОЧКИ: ${this.score}`;
-                document.getElementById('gameInstructions').textContent = `Длина: ${this.snake.length}`;
+                document.getElementById('gameInstructions').textContent = `Длина: ${this.snake.length} | Пинч = поворот`;
             }
 
             gameOver() {
@@ -1170,58 +1133,58 @@
             }
         }
 
-        // ===== 4. РИСОВАЛКА =====
+        // ===== 4. УЛУЧШЕННАЯ РИСОВАЛКА =====
         class DrawingGame {
             constructor() {
                 this.isDrawing = false;
                 this.lastPoint = null;
-                this.brushSize = 8;
+                this.brushSize = 6;
                 this.colors = ['#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b', '#ff6b6b', '#06b6d4'];
                 this.currentColor = 0;
-                this.strokes = [];
-                this.currentStroke = [];
+                this.paths = []; // Массив путей
+                this.currentPath = null;
+                this.strokeCount = 0;
             }
 
             update() {
                 if (!handData) return;
 
-                // Рисование при пинче
-                if (handData.isPinching) {
-                    if (!this.isDrawing) {
-                        this.isDrawing = true;
-                        this.currentStroke = [];
-                        this.lastPoint = { x: handData.x, y: handData.y };
-                    }
-                    
-                    if (this.lastPoint) {
-                        const dist = Math.sqrt(
-                            Math.pow(handData.x - this.lastPoint.x, 2) +
-                            Math.pow(handData.y - this.lastPoint.y, 2)
-                        );
-                        
-                        if (dist > 3) { // Минимальное расстояние для плавности
-                            this.currentStroke.push({
-                                x: handData.x,
-                                y: handData.y,
-                                prevX: this.lastPoint.x,
-                                prevY: this.lastPoint.y,
-                                color: this.colors[this.currentColor],
-                                size: this.brushSize
-                            });
-                            this.lastPoint = { x: handData.x, y: handData.y };
-                        }
-                    }
-                } else {
-                    if (this.isDrawing && this.currentStroke.length > 0) {
-                        this.strokes.push([...this.currentStroke]);
-                        this.currentStroke = [];
-                    }
-                    this.isDrawing = false;
-                    this.lastPoint = null;
+                // Начало рисования
+                if (handData.justPinched) {
+                    this.isDrawing = true;
+                    this.currentPath = {
+                        points: [{ x: handData.x, y: handData.y }],
+                        color: this.colors[this.currentColor],
+                        size: this.brushSize
+                    };
+                    this.lastPoint = { x: handData.x, y: handData.y };
                 }
 
-                // Смена цвета двойным пинчем
-                if (handData.justReleased && !this.isDrawing) {
+                // Рисование при удержании пинча
+                if (handData.isPinching && this.isDrawing && this.currentPath) {
+                    const dist = Math.sqrt(
+                        Math.pow(handData.x - this.lastPoint.x, 2) +
+                        Math.pow(handData.y - this.lastPoint.y, 2)
+                    );
+                    
+                    // Добавляем точку только если достаточно далеко (для плавности)
+                    if (dist > 2) {
+                        this.currentPath.points.push({ x: handData.x, y: handData.y });
+                        this.lastPoint = { x: handData.x, y: handData.y };
+                    }
+                }
+
+                // Завершение рисования
+                if (handData.justReleased && this.isDrawing) {
+                    if (this.currentPath && this.currentPath.points.length > 1) {
+                        this.paths.push(this.currentPath);
+                        this.strokeCount++;
+                    }
+                    this.isDrawing = false;
+                    this.currentPath = null;
+                    this.lastPoint = null;
+                    
+                    // Смена цвета после каждого штриха
                     this.currentColor = (this.currentColor + 1) % this.colors.length;
                 }
 
@@ -1229,92 +1192,130 @@
             }
 
             render() {
-                // НЕ очищаем canvas - рисуем поверх!
+                // НЕ очищаем canvas для накопительного рисования
                 
-                // Рисуем все завершенные штрихи
-                this.strokes.forEach(stroke => {
-                    stroke.forEach(point => {
-                        ctx.strokeStyle = point.color;
-                        ctx.lineWidth = point.size;
-                        ctx.lineCap = 'round';
-                        ctx.lineJoin = 'round';
-                        
-                        ctx.beginPath();
-                        ctx.moveTo(point.prevX, point.prevY);
-                        ctx.lineTo(point.x, point.y);
-                        ctx.stroke();
-                    });
-                });
-
-                // Рисуем текущий штрих
-                if (this.currentStroke.length > 0) {
-                    ctx.strokeStyle = this.colors[this.currentColor];
-                    ctx.lineWidth = this.brushSize;
+                // Рисуем все завершенные пути
+                this.paths.forEach(path => {
+                    if (path.points.length < 2) return;
+                    
+                    ctx.strokeStyle = path.color;
+                    ctx.lineWidth = path.size;
                     ctx.lineCap = 'round';
                     ctx.lineJoin = 'round';
+                    ctx.shadowColor = path.color;
+                    ctx.shadowBlur = 10;
                     
-                    this.currentStroke.forEach(point => {
-                        ctx.beginPath();
-                        ctx.moveTo(point.prevX, point.prevY);
-                        ctx.lineTo(point.x, point.y);
-                        ctx.stroke();
-                    });
+                    ctx.beginPath();
+                    ctx.moveTo(path.points[0].x, path.points.y);
+                    
+                    // Плавные кривые через все точки
+                    for (let i = 1; i < path.points.length - 1; i++) {
+                        const currentPoint = path.points[i];
+                        const nextPoint = path.points[i + 1];
+                        const cpx = (currentPoint.x + nextPoint.x) / 2;
+                        const cpy = (currentPoint.y + nextPoint.y) / 2;
+                        ctx.quadraticCurveTo(currentPoint.x, currentPoint.y, cpx, cpy);
+                    }
+                    
+                    // Последняя точка
+                    if (path.points.length > 1) {
+                        const lastPoint = path.points[path.points.length - 1];
+                        ctx.lineTo(lastPoint.x, lastPoint.y);
+                    }
+                    
+                    ctx.stroke();
+                });
+
+                // Рисуем текущий путь
+                if (this.currentPath && this.currentPath.points.length > 1) {
+                    ctx.strokeStyle = this.currentPath.color;
+                    ctx.lineWidth = this.currentPath.size;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.shadowColor = this.currentPath.color;
+                    ctx.shadowBlur = 10;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(this.currentPath.points[0].x, this.currentPath.points.y);
+                    
+                    for (let i = 1; i < this.currentPath.points.length - 1; i++) {
+                        const currentPoint = this.currentPath.points[i];
+                        const nextPoint = this.currentPath.points[i + 1];
+                        const cpx = (currentPoint.x + nextPoint.x) / 2;
+                        const cpy = (currentPoint.y + nextPoint.y) / 2;
+                        ctx.quadraticCurveTo(currentPoint.x, currentPoint.y, cpx, cpy);
+                    }
+                    
+                    if (this.currentPath.points.length > 1) {
+                        const lastPoint = this.currentPath.points[this.currentPath.points.length - 1];
+                        ctx.lineTo(lastPoint.x, lastPoint.y);
+                    }
+                    
+                    ctx.stroke();
                 }
+
+                ctx.shadowBlur = 0;
 
                 // Палитра цветов
                 this.colors.forEach((color, index) => {
                     ctx.fillStyle = color;
-                    const x = 50 + index * 40;
-                    const y = 50;
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = index === this.currentColor ? 20 : 5;
+                    
+                    const x = 50 + index * 50;
+                    const y = 60;
+                    const radius = index === this.currentColor ? 20 : 15;
                     
                     ctx.beginPath();
-                    ctx.arc(x, y, 15, 0, Math.PI * 2);
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
                     ctx.fill();
                     
                     if (index === this.currentColor) {
                         ctx.strokeStyle = '#ffffff';
                         ctx.lineWidth = 3;
+                        ctx.shadowBlur = 0;
                         ctx.beginPath();
-                        ctx.arc(x, y, 18, 0, Math.PI * 2);
+                        ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
                         ctx.stroke();
                     }
                 });
 
-                // Кисть (предпросмотр)
+                // Предпросмотр кисти
                 if (handData && !handData.isPinching) {
-                    ctx.strokeStyle = this.colors[this.currentColor];
-                    ctx.lineWidth = 2;
+                    ctx.fillStyle = this.colors[this.currentColor];
+                    ctx.shadowColor = this.colors[this.currentColor];
+                    ctx.shadowBlur = 15;
+                    ctx.globalAlpha = 0.7;
                     ctx.beginPath();
                     ctx.arc(handData.x, handData.y, this.brushSize / 2, 0, Math.PI * 2);
-                    ctx.stroke();
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
                 }
+
+                ctx.shadowBlur = 0;
             }
 
             updateUI() {
-                document.getElementById('scoreDisplay').textContent = `ШТРИХИ: ${this.strokes.length}`;
-                document.getElementById('gameInstructions').textContent = 'Пинч = рисовать | Отпусти = сменить цвет';
+                document.getElementById('scoreDisplay').textContent = `ШТРИХИ: ${this.strokeCount}`;
+                document.getElementById('gameInstructions').textContent = 'Пинч = рисовать | Отпусти = новый цвет | C = очистить';
             }
 
             clearCanvas() {
-                this.strokes = [];
-                this.currentStroke = [];
+                this.paths = [];
+                this.currentPath = null;
+                this.strokeCount = 0;
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
         }
 
-        // ===== ОСНОВНОЙ ЦИКЛ 120 FPS =====
+        // ===== ОСНОВНОЙ ЦИКЛ =====
         function gameLoop() {
-            // 120 FPS рендеринг
-            const fps120 = () => {
-                requestAnimationFrame(fps120);
-                
-                if (gameState === 'playing' && currentGame) {
-                    currentGame.update();
-                    currentGame.render();
-                }
-            };
+            requestAnimationFrame(gameLoop);
             
-            fps120();
+            if (gameState === 'playing' && currentGame) {
+                currentGame.update();
+                currentGame.render();
+            }
         }
 
         // Дополнительные обработчики
